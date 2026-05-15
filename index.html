@@ -57,6 +57,9 @@
         spawnGapBase: 0.75,
         spawnGapMin: 0.28,
         spawnGapWaveStep: 0.02,
+        speedIncreasePerWave: 1.4,
+        moneyBonusWaveDivisor: 2,
+        expGrowthPerWave: 1.05,
       },
       combat: {
         baseDamageToCasino: 10,
@@ -64,6 +67,7 @@
         critMultiplier: 1.5,
         critChance: 0.12,
         missChance: 0.05,
+        defenseScaleFactor: 0.75,
       },
       progression: {
         startLevel: 1,
@@ -219,7 +223,7 @@
       },
       {
         title: "Backroom Insurance",
-        desc: "Base heals +10 HP (up to max).",
+        desc: `Base heals +${BALANCE.progression.upgradeBaseHeal} HP (up to max).`,
         apply: (s) => { s.baseHp = Math.min(BALANCE.game.baseMaxHp, s.baseHp + BALANCE.progression.upgradeBaseHeal) },
       },
     ]
@@ -413,7 +417,7 @@
         mp: maxMp,
         maxMp,
         attack: Math.max(0, Math.round(raw.attack * scaleFactor)),
-        defense: Math.max(0, Math.round(raw.defense * Math.max(1, scaleFactor * 0.75))),
+        defense: Math.max(0, Math.round(raw.defense * Math.max(1, scaleFactor * BALANCE.combat.defenseScaleFactor))),
         exp: raw.exp || 0,
         level: raw.level || 1,
       }
@@ -445,18 +449,20 @@
       return ent
     }
 
-    function attachTwoFrameIdleAnimation(owner, frames, frameSeconds = BALANCE.visual.defaultIdleFrameSeconds) {
-      if (!frames || frames.length < 2) return
+    function attachIdleAnimation(owner, frames, frameSeconds = BALANCE.visual.defaultIdleFrameSeconds) {
+      if (!frames || frames.length === 0) return
+      const idleFrames = frames.length >= 2 ? frames.slice(0, 2) : [frames[0], frames[0]]
       owner.animFrameTimer = 0
       owner.animFrameIndex = 0
+      owner.frame = idleFrames[0]
 
       owner.onUpdate(() => {
         if (!owner.exists()) return
         owner.animFrameTimer += dt()
         if (owner.animFrameTimer < frameSeconds) return
         owner.animFrameTimer = 0
-        owner.animFrameIndex = (owner.animFrameIndex + 1) % frames.length
-        owner.frame = frames[owner.animFrameIndex]
+        owner.animFrameIndex = (owner.animFrameIndex + 1) % idleFrames.length
+        owner.frame = idleFrames[owner.animFrameIndex]
       })
     }
 
@@ -595,6 +601,8 @@
     }
 
     function pickEnemyTypeForWave(wave) {
+      if (wave % 15 === 0) return "tank"
+      if (wave % 10 === 0) return "tank"
       if (wave % 6 === 0) return Math.random() < 0.5 ? "tank" : "rogue"
       if (wave % 5 === 0) return "tank"
       if (wave % 3 === 0) return "rogue"
@@ -834,6 +842,10 @@
         }
       }
 
+      function canCastAbility(tower, def) {
+        return tower.cooldown <= 0 && tower.ent.stats.mp >= def.abilityCost
+      }
+
       function spawnEnemy() {
         const enemyType = pickEnemyTypeForWave(waveManager.wave)
         const def = getCharacterDefinition("enemy", enemyType)
@@ -846,14 +858,14 @@
           tags: ["enemy"],
         })
 
-        enemy.baseSpeed = def.speed + waveManager.wave * 1.4
+        enemy.baseSpeed = def.speed + waveManager.wave * BALANCE.wave.speedIncreasePerWave
         enemy.currentSpeed = enemy.baseSpeed
         enemy.pathDist = 0
         enemy.confusedUntil = 0
-        enemy.rewardMoney = def.rewardMoney + Math.floor(waveManager.wave / 2)
-        enemy.rewardExp = Math.round(def.rewardExp * Math.pow(1.05, waveManager.wave - 1))
+        enemy.rewardMoney = def.rewardMoney + Math.floor(waveManager.wave / BALANCE.wave.moneyBonusWaveDivisor)
+        enemy.rewardExp = Math.round(def.rewardExp * Math.pow(BALANCE.wave.expGrowthPerWave, waveManager.wave - 1))
 
-        attachTwoFrameIdleAnimation(enemy, def.animFrames, BALANCE.visual.enemyIdleFrameSeconds)
+        attachIdleAnimation(enemy, def.animFrames, BALANCE.visual.enemyIdleFrameSeconds)
         attachStatBars(enemy, false)
         enemies.push(enemy)
       }
@@ -987,7 +999,7 @@
           const def = getCharacterDefinition("hero", tower.type)
 
           if (tower.type === "blind") {
-            if (tower.cooldown > 0 || tower.ent.stats.mp < def.abilityCost) return
+            if (!canCastAbility(tower, def)) return
             let best = null
             let bestDist = Infinity
             enemies.forEach((e) => {
@@ -1023,7 +1035,7 @@
           }
 
           if (tower.type === "legless") {
-            if (tower.cooldown > 0 || tower.ent.stats.mp < def.abilityCost) return
+            if (!canCastAbility(tower, def)) return
             let target = null
             let progress = -1
             enemies.forEach((e) => {
@@ -1099,7 +1111,7 @@
           }
 
           if (tower.type === "deaf") {
-            if (tower.cooldown > 0 || tower.ent.stats.mp < def.abilityCost) return
+            if (!canCastAbility(tower, def)) return
             tower.cooldown = def.fireRate
             tower.ent.stats.mp -= def.abilityCost
 
