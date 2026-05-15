@@ -165,6 +165,24 @@
       },
     }
 
+    const HERO_PASSIVES = {
+      blind: {
+        title: "Sightless Commander",
+        desc: "+3 Blind damage bonus",
+        apply: (state) => { state.upgrades.blindDamageBonus += 3 },
+      },
+      legless: {
+        title: "Crushing Commander",
+        desc: "+18 Legless damage bonus",
+        apply: (state) => { state.upgrades.legDamageBonus += 18 },
+      },
+      deaf: {
+        title: "Echo Commander",
+        desc: "+0.08 Deaf slow bonus",
+        apply: (state) => { state.upgrades.deafSlowBonus += 0.08 },
+      },
+    }
+
     const UPGRADE_POOL = [
       {
         title: "Greased Palms",
@@ -207,12 +225,14 @@
     const EPSILON = 0.0001
     const SEGMENT_START_T = 0
 
-    function makeInitialState() {
+    function makeInitialState(selectedHero = "blind") {
       return {
         wave: 1,
         completedWave: 0,
         money: BALANCE.economy.startMoney,
         baseHp: BALANCE.game.baseMaxHp,
+        selectedHero,
+        heroPassiveApplied: false,
         upgrades: {
           blindDamageBonus: 0,
           legDamageBonus: 0,
@@ -460,12 +480,56 @@
         color(140, 230, 180),
       ])
       add([
-        text("Press SPACE to Start", { size: 24 }),
+        text("Press SPACE to Choose Hero", { size: 24 }),
         pos(center().x, 340),
         anchor("center"),
         color(255, 235, 120),
       ])
-      onKeyPress("space", () => go("game", makeInitialState()))
+      onKeyPress("space", () => go("hero_select"))
+    })
+
+    scene("hero_select", () => {
+      const heroKeys = ["blind", "legless", "deaf"]
+      add([
+        text("CHOOSE YOUR HERO (1 / 2 / 3)", { size: 32 }),
+        pos(center().x, 90),
+        anchor("center"),
+        color(220, 245, 255),
+      ])
+
+      heroKeys.forEach((key, i) => {
+        const def = getCharacterDefinition("hero", key)
+        const passive = HERO_PASSIVES[key]
+        const y = 185 + i * 125
+
+        add([
+          pos(84, y - 24),
+          rect(632, 94),
+          color(47, 58, 75),
+          outline(3, rgb(95, 120, 155)),
+        ])
+        add([
+          text(`${i + 1}. ${def.name}`, { size: 23 }),
+          pos(106, y),
+          color(235, 245, 255),
+        ])
+        add([
+          text(`Passive: ${passive.title} (${passive.desc})`, { size: 16 }),
+          pos(108, y + 34),
+          color(175, 220, 255),
+        ])
+      })
+
+      add([
+        text("Press ESC to return", { size: 16 }),
+        pos(20, 570),
+        color(200, 210, 225),
+      ])
+
+      onKeyPress("1", () => go("game", makeInitialState("blind")))
+      onKeyPress("2", () => go("game", makeInitialState("legless")))
+      onKeyPress("3", () => go("game", makeInitialState("deaf")))
+      onKeyPress("escape", () => go("start"))
     })
 
     scene("draft", (state) => {
@@ -568,7 +632,8 @@
         hp: add([text("", { size: 18 }), pos(16, 36), fixed(), z(100), color(245, 165, 165)]),
         wave: add([text("", { size: 18 }), pos(16, 60), fixed(), z(100), color(185, 220, 255)]),
         level: add([text("", { size: 18 }), pos(16, 84), fixed(), z(100), color(175, 255, 170)]),
-        tower: add([text("", { size: 18 }), pos(16, 108), fixed(), z(100), color(200, 220, 245)]),
+        hero: add([text("", { size: 18 }), pos(16, 108), fixed(), z(100), color(255, 215, 165)]),
+        tower: add([text("", { size: 18 }), pos(16, 132), fixed(), z(100), color(200, 220, 245)]),
         hint: add([text("", { size: 16 }), pos(16, 560), fixed(), z(100), color(255, 240, 185)]),
         expLabel: add([text("EXP", { size: 14 }), pos(16, 536), fixed(), z(100), color(170, 220, 255)]),
         expBg: add([rect(300, 12), pos(56, 538), anchor("left"), fixed(), color(35, 45, 60), z(100)]),
@@ -585,6 +650,12 @@
         wave: state.wave,
         spawned: 0,
         clearing: false,
+      }
+
+      if (!state.heroPassiveApplied) {
+        const passive = HERO_PASSIVES[state.selectedHero] || HERO_PASSIVES.blind
+        passive.apply(state)
+        state.heroPassiveApplied = true
       }
 
       const waveScale = Math.pow(BALANCE.wave.difficultyMultiplier, waveManager.wave - 1)
@@ -918,10 +989,12 @@
         ui.expLabel.text = `EXP ${Math.floor(state.player.exp)} / ${state.player.expToNext}`
 
         const selected = getCharacterDefinition("hero", towerOrder[selectedTowerIdx])
+        const selectedHero = getCharacterDefinition("hero", state.selectedHero || "blind")
         ui.money.text = `Bribes: ${state.money}`
         ui.hp.text = `Casino HP: ${Math.max(0, state.baseHp)}`
         ui.wave.text = `Wave: ${waveManager.wave} (${waveManager.spawned}/${waveManager.waveCount})`
         ui.level.text = `Level: ${state.player.level}`
+        ui.hero.text = `Hero: ${selectedHero.name}`
         ui.tower.text = `Selected: ${selected.name} [1/2/3] | Cost: ${BALANCE.economy.towerCost}`
         if (!ui.hint.text) ui.hint.text = "Click to place characters and defend the casino."
       })
