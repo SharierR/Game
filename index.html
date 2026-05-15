@@ -39,6 +39,14 @@
     const PATH_WIDTH = 64
     const ENEMY_REWARD = 10
     const BASE_DAMAGE = 10
+    const EPSILON = 0.0001
+    const BLIND_CONFUSION_DURATION = 1.5
+    const LEG_DROP_SPEED = 2400
+    const SHOCKWAVE_EXPAND_RATE = 430
+    const SHOCKWAVE_FADE_RATE = 2.5
+    const DEAF_PULSE_BASE_RADIUS = 6
+    const DEAF_PULSE_EXPAND_RATE = 250
+    const DEAF_PULSE_FADE_RATE = 1.8
 
     const WAYPOINTS = [
       vec2(40, 90),
@@ -116,7 +124,9 @@
     function lineDistToPoint(p, a, b) {
       const ab = b.sub(a)
       const ap = p.sub(a)
-      const t = Math.max(0, Math.min(1, ap.dot(ab) / Math.max(1, ab.dot(ab))))
+      const denom = ab.dot(ab)
+      if (denom <= EPSILON) return p.dist(a)
+      const t = Math.max(0, Math.min(1, ap.dot(ab) / denom))
       const proj = a.add(ab.scale(t))
       return p.dist(proj)
     }
@@ -346,7 +356,7 @@
           return
         }
         if (isOnPath(worldPos)) {
-          ui.hint.text = "Towers can't be placed on the bureaucrat lane."
+          ui.hint.text = "Towers can't be placed on the path."
           return
         }
         if (state.money < TOWER_COST) {
@@ -449,7 +459,7 @@
 
             tower.cooldown = data.fireRate
             best.hp -= 8 + state.upgrades.blindDamageBonus
-            best.confusedUntil = Math.max(best.confusedUntil, time() + 1.5)
+            best.confusedUntil = Math.max(best.confusedUntil, time() + BLIND_CONFUSION_DURATION)
 
             const delta = best.pos.sub(pos0)
             add([
@@ -500,7 +510,7 @@
             ])
 
             leg.onUpdate(() => {
-              leg.pos.y += 2400 * dt()
+              leg.pos.y += LEG_DROP_SPEED * dt()
               if (!leg.hit && leg.pos.y >= leg.floorY) {
                 leg.hit = true
                 leg.pos.y = leg.floorY
@@ -518,8 +528,8 @@
                 ])
 
                 wave.onUpdate(() => {
-                  wave.r += 430 * dt()
-                  wave.opacity -= 2.5 * dt()
+                  wave.r += SHOCKWAVE_EXPAND_RATE * dt()
+                  wave.opacity -= SHOCKWAVE_FADE_RATE * dt()
                   wave.scale = vec2(wave.r / 24, wave.r / 24)
                   if (wave.opacity <= 0) destroy(wave)
                 })
@@ -546,17 +556,17 @@
             tower.cooldown = data.fireRate
             const pulse = add([
               pos(pos0),
-              circle(6),
+              circle(DEAF_PULSE_BASE_RADIUS),
               anchor("center"),
               color(135, 190, 255),
               opacity(0.45),
               z(9),
-              { r: 6 },
+              { r: DEAF_PULSE_BASE_RADIUS },
             ])
             pulse.onUpdate(() => {
-              pulse.r += 250 * dt()
-              pulse.scale = vec2(pulse.r / 6, pulse.r / 6)
-              pulse.opacity -= 1.8 * dt()
+              pulse.r += DEAF_PULSE_EXPAND_RATE * dt()
+              pulse.scale = vec2(pulse.r / DEAF_PULSE_BASE_RADIUS, pulse.r / DEAF_PULSE_BASE_RADIUS)
+              pulse.opacity -= DEAF_PULSE_FADE_RATE * dt()
               if (pulse.opacity <= 0) destroy(pulse)
             })
           }
