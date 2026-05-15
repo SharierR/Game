@@ -312,11 +312,86 @@
           rect(len, BALANCE.game.pathWidth),
           anchor("left"),
           rotate(ang),
-          color(80, 94, 112),
-          opacity(0.95),
+          color(62, 72, 84),
+          opacity(0.92),
           z(0),
         ])
+        add([
+          pos(a),
+          rect(len, 6),
+          anchor("left"),
+          rotate(ang),
+          color(112, 124, 136),
+          opacity(0.35),
+          z(1),
+        ])
       }
+    }
+
+    function drawGloomyEnvironment() {
+      // Dark ground base.
+      add([
+        pos(0, 0),
+        rect(BALANCE.game.width, BALANCE.game.height),
+        anchor("topleft"),
+        color(20, 28, 36),
+        z(-20),
+      ])
+
+      // Vertical gradient bands for depth.
+      for (let i = 0; i < 8; i++) {
+        add([
+          pos(0, i * 76),
+          rect(BALANCE.game.width, 76),
+          anchor("topleft"),
+          color(22 + i * 3, 30 + i * 3, 38 + i * 3),
+          opacity(0.22),
+          z(-19),
+        ])
+      }
+
+      // Distant moon glow.
+      add([pos(700, 86), circle(46), color(180, 200, 220), opacity(0.2), z(-18)])
+      add([pos(700, 86), circle(20), color(215, 225, 235), opacity(0.42), z(-17)])
+
+      // Ground fog layers.
+      for (let i = 0; i < 7; i++) {
+        add([
+          pos(80 + i * 110, 525 + (i % 2) * 10),
+          circle(90),
+          color(88, 104, 120),
+          opacity(0.12),
+          z(-10),
+        ])
+      }
+
+      // Dead-tree-like silhouettes.
+      const trees = [
+        vec2(82, 470),
+        vec2(322, 470),
+        vec2(630, 462),
+        vec2(746, 440),
+      ]
+      trees.forEach((p) => {
+        add([pos(p), rect(8, 58), color(38, 40, 46), z(-5)])
+        add([pos(p.x - 12, p.y + 18), rect(24, 5), rotate(-28), color(38, 40, 46), z(-5)])
+        add([pos(p.x + 2, p.y + 8), rect(20, 4), rotate(23), color(38, 40, 46), z(-5)])
+      })
+
+      // Scattered stones/debris.
+      const stones = [
+        vec2(110, 140), vec2(360, 120), vec2(695, 180), vec2(690, 430),
+        vec2(305, 430), vec2(120, 330), vec2(510, 448), vec2(430, 302),
+      ]
+      stones.forEach((p, i) => {
+        add([
+          pos(p),
+          rect(10 + (i % 3) * 4, 7 + (i % 2) * 3),
+          color(70, 78, 88),
+          opacity(0.65),
+          z(-2),
+        ])
+      })
     }
 
     function makeStats(raw, scaleFactor = 1) {
@@ -664,6 +739,7 @@
     })
 
     scene("game", (state) => {
+      drawGloomyEnvironment()
       drawPath()
 
       const base = add([
