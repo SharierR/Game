@@ -31,65 +31,137 @@
       crisp: true,
     })
 
-    const GAME_W = 800
-    const GAME_H = 600
-    const BASE_MAX_HP = 100
-    const START_MONEY = 150
-    const TOWER_COST = 50
-    const PATH_WIDTH = 64
-    const WAVE_DIFFICULTY_MULTIPLIER = 1.2
-    const ENEMY_REWARD = 10
-    const BASE_DAMAGE = 10
-    const BASE_SIZE = 62
-    const MAP_EDGE_PADDING = 20
-    const PATH_PLACEMENT_BUFFER = 14
-    const MIN_ENEMY_SPEED = 20
-    const PATH_END_THRESHOLD = 1
-    const EPSILON = 0.0001
-    const SEGMENT_START_T = 0
-    const BLIND_CONFUSION_DURATION = 1.5
-    const LEG_DROP_SPEED = 2400
-    const LEG_DROP_HEIGHT = 320
-    const LEG_WIDTH = 42
-    const LEG_HEIGHT = 230
-    const LEG_FADE_RATE = 4.2
-    const SHOCKWAVE_INITIAL_RADIUS = 24
-    const SHOCKWAVE_EXPAND_RATE = 430
-    const SHOCKWAVE_FADE_RATE = 2.5
-    const DEAF_PULSE_BASE_RADIUS = 6
-    const DEAF_PULSE_EXPAND_RATE = 250
-    const DEAF_PULSE_FADE_RATE = 1.8
-
-    const WAYPOINTS = [
-      vec2(40, 90),
-      vec2(250, 90),
-      vec2(250, 220),
-      vec2(580, 220),
-      vec2(580, 360),
-      vec2(180, 360),
-      vec2(180, 510),
-      vec2(740, 510),
-    ]
-
-    const TOWER_DATA = {
-      1: {
-        name: "The Blind",
-        color: rgb(55, 55, 60),
-        range: 165,
-        fireRate: 0.45,
+    const BALANCE = {
+      game: {
+        width: 800,
+        height: 600,
+        baseMaxHp: 100,
+        baseSize: 62,
+        mapEdgePadding: 20,
+        pathWidth: 64,
+        pathPlacementBuffer: 14,
+        minEnemySpeed: 20,
+        pathEndThreshold: 1,
       },
-      2: {
-        name: "The Legless",
-        color: rgb(38, 145, 64),
-        range: 210,
-        fireRate: 3.0,
-        aoeRadius: 110,
+      economy: {
+        startMoney: 150,
+        towerCost: 50,
       },
-      3: {
-        name: "The Deaf",
-        color: rgb(50, 120, 220),
-        range: 135,
-        fireRate: 0.18,
+      wave: {
+        difficultyMultiplier: 1.2,
+        baseCount: 10,
+        baseEnemyHp: 30,
+        spawnGapBase: 0.75,
+        spawnGapMin: 0.28,
+        spawnGapWaveStep: 0.02,
+      },
+      combat: {
+        baseDamageToCasino: 10,
+        blindConfusionDuration: 1.5,
+        critMultiplier: 1.5,
+        critChance: 0.12,
+        missChance: 0.05,
+      },
+      progression: {
+        startLevel: 1,
+        startExp: 0,
+        expToNextBase: 90,
+        expGrowth: 1.33,
+        levelUpBonuses: {
+          blindDamageBonus: 1,
+          legDamageBonus: 4,
+          deafSlowBonus: 0.02,
+          baseHeal: 3,
+        },
+      },
+      visual: {
+        legDropSpeed: 2400,
+        legDropHeight: 320,
+        legWidth: 42,
+        legHeight: 230,
+        legFadeRate: 4.2,
+        shockwaveInitialRadius: 24,
+        shockwaveExpandRate: 430,
+        shockwaveFadeRate: 2.5,
+        deafPulseBaseRadius: 6,
+        deafPulseExpandRate: 250,
+        deafPulseFadeRate: 1.8,
+        floatingLife: 0.65,
+        floatingRiseSpeed: 42,
+        floatingFadeSpeed: 1.6,
+      },
+    }
+
+    // Sprite sheet provided by user.
+    const CHARACTER_SHEET_URL = "https://github.com/user-attachments/assets/607c5542-10bd-419f-a71c-592401f64de7"
+    loadSprite("characterSheet", CHARACTER_SHEET_URL, {
+      sliceX: 8,
+      sliceY: 3,
+    })
+
+    // Character data is centralized and frame-mapped by class (hero/enemy).
+    const CHARACTER_CONFIG = {
+      hero: {
+        blind: {
+          name: "The Blind",
+          frame: 0,
+          className: "hero",
+          range: 165,
+          fireRate: 0.45,
+          abilityCost: 18,
+          mpRegen: 18,
+          stats: { maxHp: 95, maxMp: 100, attack: 12, defense: 2, exp: 0, level: 1 },
+        },
+        legless: {
+          name: "The Legless",
+          frame: 1,
+          className: "hero",
+          range: 210,
+          fireRate: 3.0,
+          abilityCost: 45,
+          mpRegen: 12,
+          aoeRadius: 110,
+          stats: { maxHp: 115, maxMp: 90, attack: 70, defense: 3, exp: 0, level: 1 },
+        },
+        deaf: {
+          name: "The Deaf",
+          frame: 2,
+          className: "hero",
+          range: 135,
+          fireRate: 0.18,
+          abilityCost: 8,
+          mpRegen: 24,
+          stats: { maxHp: 90, maxMp: 120, attack: 0, defense: 1, exp: 0, level: 1 },
+        },
+      },
+      enemy: {
+        grunt: {
+          name: "Bureaucrat Grunt",
+          frame: 8,
+          className: "enemy",
+          speed: 66,
+          rewardMoney: 10,
+          rewardExp: 18,
+          stats: { maxHp: 30, maxMp: 0, attack: 9, defense: 0, exp: 0, level: 1 },
+        },
+        rogue: {
+          name: "Bureaucrat Rogue",
+          frame: 9,
+          className: "enemy",
+          speed: 82,
+          rewardMoney: 12,
+          rewardExp: 22,
+          stats: { maxHp: 25, maxMp: 0, attack: 10, defense: 0, exp: 0, level: 1 },
+        },
+        tank: {
+          name: "Bureaucrat Tank",
+          frame: 10,
+          className: "enemy",
+          speed: 52,
+          rewardMoney: 16,
+          rewardExp: 28,
+          stats: { maxHp: 45, maxMp: 0, attack: 13, defense: 2, exp: 0, level: 1 },
+        },
       },
     }
 
@@ -117,20 +189,39 @@
       {
         title: "Backroom Insurance",
         desc: "Base heals +10 HP (up to max).",
-        apply: (s) => { s.baseHp = Math.min(BASE_MAX_HP, s.baseHp + 10) },
+        apply: (s) => { s.baseHp = Math.min(BALANCE.game.baseMaxHp, s.baseHp + 10) },
       },
     ]
+
+    const WAYPOINTS = [
+      vec2(40, 90),
+      vec2(250, 90),
+      vec2(250, 220),
+      vec2(580, 220),
+      vec2(580, 360),
+      vec2(180, 360),
+      vec2(180, 510),
+      vec2(740, 510),
+    ]
+
+    const EPSILON = 0.0001
+    const SEGMENT_START_T = 0
 
     function makeInitialState() {
       return {
         wave: 1,
         completedWave: 0,
-        money: START_MONEY,
-        baseHp: BASE_MAX_HP,
+        money: BALANCE.economy.startMoney,
+        baseHp: BALANCE.game.baseMaxHp,
         upgrades: {
           blindDamageBonus: 0,
           legDamageBonus: 0,
           deafSlowBonus: 0,
+        },
+        player: {
+          level: BALANCE.progression.startLevel,
+          exp: BALANCE.progression.startExp,
+          expToNext: BALANCE.progression.expToNextBase,
         },
       }
     }
@@ -168,7 +259,7 @@
 
     function isOnPath(p) {
       for (let i = 0; i < WAYPOINTS.length - 1; i++) {
-        if (lineDistToPoint(p, WAYPOINTS[i], WAYPOINTS[i + 1]) <= PATH_WIDTH * 0.5 + PATH_PLACEMENT_BUFFER) {
+        if (lineDistToPoint(p, WAYPOINTS[i], WAYPOINTS[i + 1]) <= BALANCE.game.pathWidth * 0.5 + BALANCE.game.pathPlacementBuffer) {
           return true
         }
       }
@@ -195,7 +286,7 @@
         const ang = d.angle()
         add([
           pos(a),
-          rect(len, PATH_WIDTH),
+          rect(len, BALANCE.game.pathWidth),
           anchor("left"),
           rotate(ang),
           color(80, 94, 112),
@@ -205,22 +296,172 @@
       }
     }
 
+    function makeStats(raw, scaleFactor = 1) {
+      const maxHp = Math.max(1, Math.round(raw.maxHp * scaleFactor))
+      const maxMp = Math.max(0, Math.round(raw.maxMp * scaleFactor))
+      return {
+        hp: maxHp,
+        maxHp,
+        mp: maxMp,
+        maxMp,
+        attack: Math.max(0, Math.round(raw.attack * scaleFactor)),
+        defense: Math.max(0, Math.round(raw.defense * Math.max(1, scaleFactor * 0.75))),
+        exp: raw.exp || 0,
+        level: raw.level || 1,
+      }
+    }
+
+    function getCharacterDefinition(role, type) {
+      return CHARACTER_CONFIG[role][type]
+    }
+
+    function createCharacterEntity({ role, type, worldPos, scaleFactor = 1, tags = [] }) {
+      const def = getCharacterDefinition(role, type)
+      const ent = add([
+        pos(worldPos),
+        sprite("characterSheet", { frame: def.frame }),
+        scale(1.1),
+        anchor("center"),
+        area(),
+        z(role === "enemy" ? 6 : 8),
+        "character",
+        role,
+        ...tags,
+        {
+          role,
+          type,
+          className: def.className,
+          stats: makeStats(def.stats, scaleFactor),
+        },
+      ])
+      return ent
+    }
+
+    function attachStatBars(owner, showMp = true) {
+      const barW = 34
+      const barH = 4
+      const yOffset = -34
+
+      const hpBg = add([pos(owner.pos), rect(barW, barH), anchor("left"), color(18, 18, 18), opacity(0.8), z(30)])
+      const hpFill = add([pos(owner.pos), rect(barW, barH), anchor("left"), color(235, 70, 85), z(31)])
+      let mpBg = null
+      let mpFill = null
+
+      if (showMp) {
+        mpBg = add([pos(owner.pos), rect(barW, barH), anchor("left"), color(18, 18, 18), opacity(0.8), z(30)])
+        mpFill = add([pos(owner.pos), rect(barW, barH), anchor("left"), color(80, 170, 255), z(31)])
+      }
+
+      const destroyBars = () => {
+        if (hpBg.exists()) destroy(hpBg)
+        if (hpFill.exists()) destroy(hpFill)
+        if (mpBg && mpBg.exists()) destroy(mpBg)
+        if (mpFill && mpFill.exists()) destroy(mpFill)
+      }
+
+      hpFill.onUpdate(() => {
+        if (!owner.exists()) {
+          destroyBars()
+          return
+        }
+
+        const hpRatio = Math.max(0, Math.min(1, owner.stats.hp / owner.stats.maxHp))
+        hpBg.pos = vec2(owner.pos.x - barW / 2, owner.pos.y + yOffset)
+        hpFill.pos = vec2(owner.pos.x - barW / 2, owner.pos.y + yOffset)
+        hpFill.scale.x = hpRatio
+
+        if (mpBg && mpFill) {
+          const mpRatio = owner.stats.maxMp <= 0 ? 0 : Math.max(0, Math.min(1, owner.stats.mp / owner.stats.maxMp))
+          mpBg.pos = vec2(owner.pos.x - barW / 2, owner.pos.y + yOffset + 6)
+          mpFill.pos = vec2(owner.pos.x - barW / 2, owner.pos.y + yOffset + 6)
+          mpFill.scale.x = mpRatio
+        }
+      })
+    }
+
+    function spawnFloatingText(worldPos, msg, kind = "normal") {
+      const palette = {
+        normal: [255, 235, 110],
+        crit: [255, 105, 105],
+        miss: [190, 205, 225],
+        level: [160, 255, 160],
+      }
+
+      const c = palette[kind] || palette.normal
+      const floater = add([
+        text(msg, { size: 16 }),
+        pos(worldPos),
+        anchor("center"),
+        color(c[0], c[1], c[2]),
+        z(40),
+        opacity(1),
+        {
+          life: BALANCE.visual.floatingLife,
+        },
+      ])
+
+      floater.onUpdate(() => {
+        floater.life -= dt()
+        floater.pos.y -= BALANCE.visual.floatingRiseSpeed * dt()
+        floater.opacity -= BALANCE.visual.floatingFadeSpeed * dt()
+        if (floater.life <= 0 || floater.opacity <= 0) destroy(floater)
+      })
+    }
+
+    function applyDamage(source, target, rawDamage) {
+      if (!target.exists()) return { killed: false, hit: false, crit: false, damage: 0 }
+
+      if (Math.random() < BALANCE.combat.missChance) {
+        spawnFloatingText(target.pos, "MISS", "miss")
+        return { killed: false, hit: false, crit: false, damage: 0 }
+      }
+
+      let damage = Math.max(1, Math.round(rawDamage - target.stats.defense))
+      let crit = false
+      if (Math.random() < BALANCE.combat.critChance) {
+        crit = true
+        damage = Math.round(damage * BALANCE.combat.critMultiplier)
+      }
+
+      target.stats.hp = Math.max(0, target.stats.hp - damage)
+      spawnFloatingText(target.pos, `-${damage}`, crit ? "crit" : "normal")
+
+      return {
+        killed: target.stats.hp <= 0,
+        hit: true,
+        crit,
+        damage,
+      }
+    }
+
+    function pickEnemyTypeForWave(wave) {
+      if (wave % 5 === 0) return "tank"
+      if (wave % 3 === 0) return "rogue"
+      return "grunt"
+    }
+
     scene("start", () => {
       add([
         text("STANDARD DEVIATIONS", { size: 42 }),
-        pos(center().x, 200),
+        pos(center().x, 190),
         anchor("center"),
         color(235, 235, 245),
       ])
       add([
         text("Defend the Illegal Underground Casino", { size: 20 }),
-        pos(center().x, 255),
+        pos(center().x, 245),
         anchor("center"),
         color(170, 190, 220),
       ])
       add([
+        text("Sprite Characters + HP/MP/EXP + Wave HUD", { size: 16 }),
+        pos(center().x, 280),
+        anchor("center"),
+        color(140, 230, 180),
+      ])
+      add([
         text("Press SPACE to Start", { size: 24 }),
-        pos(center().x, 330),
+        pos(center().x, 340),
         anchor("center"),
         color(255, 235, 120),
       ])
@@ -288,8 +529,14 @@
         color(220, 235, 255),
       ])
       add([
+        text(`Final Level ${data.levelReached}`, { size: 20 }),
+        pos(center().x, 325),
+        anchor("center"),
+        color(170, 220, 255),
+      ])
+      add([
         text("Press SPACE to Restart", { size: 24 }),
-        pos(center().x, 360),
+        pos(center().x, 370),
         anchor("center"),
         color(255, 235, 125),
       ])
@@ -301,7 +548,7 @@
 
       const base = add([
         pos(WAYPOINTS[WAYPOINTS.length - 1]),
-        rect(BASE_SIZE, BASE_SIZE),
+        rect(BALANCE.game.baseSize, BALANCE.game.baseSize),
         anchor("center"),
         color(150, 125, 60),
         outline(4, rgb(255, 220, 130)),
@@ -320,68 +567,107 @@
         money: add([text("", { size: 18 }), pos(16, 12), fixed(), z(100), color(245, 230, 130)]),
         hp: add([text("", { size: 18 }), pos(16, 36), fixed(), z(100), color(245, 165, 165)]),
         wave: add([text("", { size: 18 }), pos(16, 60), fixed(), z(100), color(185, 220, 255)]),
-        tower: add([text("", { size: 18 }), pos(16, 84), fixed(), z(100), color(200, 220, 245)]),
+        level: add([text("", { size: 18 }), pos(16, 84), fixed(), z(100), color(175, 255, 170)]),
+        tower: add([text("", { size: 18 }), pos(16, 108), fixed(), z(100), color(200, 220, 245)]),
         hint: add([text("", { size: 16 }), pos(16, 560), fixed(), z(100), color(255, 240, 185)]),
+        expLabel: add([text("EXP", { size: 14 }), pos(16, 536), fixed(), z(100), color(170, 220, 255)]),
+        expBg: add([rect(300, 12), pos(56, 538), anchor("left"), fixed(), color(35, 45, 60), z(100)]),
+        expFill: add([rect(300, 12), pos(56, 538), anchor("left"), fixed(), color(80, 170, 255), z(101)]),
       }
 
       const enemies = []
       const towers = []
-      let selectedTower = 1
+      const towerOrder = ["blind", "legless", "deaf"]
+      let selectedTowerIdx = 0
       let spawnTimer = 0
-      let spawned = 0
-      let waveClearing = false
 
-      const waveScale = Math.pow(WAVE_DIFFICULTY_MULTIPLIER, state.wave - 1)
-      const waveCount = Math.max(1, Math.round(10 * waveScale))
-      const enemyHp = Math.round(30 * waveScale)
-      const spawnGap = Math.max(0.28, 0.75 - (state.wave - 1) * 0.02)
+      const waveManager = {
+        wave: state.wave,
+        spawned: 0,
+        clearing: false,
+      }
+
+      const waveScale = Math.pow(BALANCE.wave.difficultyMultiplier, waveManager.wave - 1)
+      waveManager.waveCount = Math.max(1, Math.round(BALANCE.wave.baseCount * waveScale))
+      waveManager.spawnGap = Math.max(
+        BALANCE.wave.spawnGapMin,
+        BALANCE.wave.spawnGapBase - (waveManager.wave - 1) * BALANCE.wave.spawnGapWaveStep,
+      )
+
+      function gainPlayerExp(amount) {
+        state.player.exp += amount
+        while (state.player.exp >= state.player.expToNext) {
+          state.player.exp -= state.player.expToNext
+          state.player.level += 1
+          state.player.expToNext = Math.round(state.player.expToNext * BALANCE.progression.expGrowth)
+
+          state.upgrades.blindDamageBonus += BALANCE.progression.levelUpBonuses.blindDamageBonus
+          state.upgrades.legDamageBonus += BALANCE.progression.levelUpBonuses.legDamageBonus
+          state.upgrades.deafSlowBonus += BALANCE.progression.levelUpBonuses.deafSlowBonus
+          state.baseHp = Math.min(BALANCE.game.baseMaxHp, state.baseHp + BALANCE.progression.levelUpBonuses.baseHeal)
+
+          towers.forEach((t) => {
+            if (!t.ent.exists()) return
+            t.ent.stats.hp = Math.min(t.ent.stats.maxHp, t.ent.stats.hp + 10)
+            if (t.ent.stats.maxMp > 0) {
+              t.ent.stats.mp = Math.min(t.ent.stats.maxMp, t.ent.stats.mp + Math.round(t.ent.stats.maxMp * 0.4))
+            }
+          })
+
+          spawnFloatingText(vec2(400, 40), `LEVEL ${state.player.level}!`, "level")
+        }
+      }
 
       function spawnEnemy() {
-        const enemy = add([
-          pos(pointOnPath(0)),
-          rect(24, 24),
-          anchor("center"),
-          color(220, 55, 65),
-          area(),
-          z(6),
-          "enemy",
-          {
-            hp: enemyHp,
-            baseSpeed: 66 + state.wave * 1.5,
-            currentSpeed: 0,
-            pathDist: 0,
-            confusedUntil: 0,
-          },
-        ])
+        const enemyType = pickEnemyTypeForWave(waveManager.wave)
+        const def = getCharacterDefinition("enemy", enemyType)
+        const enemyScale = Math.pow(BALANCE.wave.difficultyMultiplier, waveManager.wave - 1)
+        const enemy = createCharacterEntity({
+          role: "enemy",
+          type: enemyType,
+          worldPos: pointOnPath(0),
+          scaleFactor: enemyScale,
+          tags: ["enemy"],
+        })
+
+        enemy.baseSpeed = def.speed + waveManager.wave * 1.4
+        enemy.currentSpeed = enemy.baseSpeed
+        enemy.pathDist = 0
+        enemy.confusedUntil = 0
+        enemy.rewardMoney = def.rewardMoney + Math.floor(waveManager.wave / 2)
+        enemy.rewardExp = Math.round(def.rewardExp * Math.pow(1.05, waveManager.wave - 1))
+
+        attachStatBars(enemy, false)
         enemies.push(enemy)
       }
 
       function killEnemy(enemy) {
         if (!enemy.exists()) return
-        destroy(enemy)
         const idx = enemies.indexOf(enemy)
         if (idx >= 0) enemies.splice(idx, 1)
-        state.money += ENEMY_REWARD
+        state.money += enemy.rewardMoney
+        gainPlayerExp(enemy.rewardExp)
+        destroy(enemy)
       }
 
       function removeEnemy(enemy) {
         if (!enemy.exists()) return
-        destroy(enemy)
         const idx = enemies.indexOf(enemy)
         if (idx >= 0) enemies.splice(idx, 1)
+        destroy(enemy)
       }
 
       function placeTower(worldPos) {
         if (
-          worldPos.x < MAP_EDGE_PADDING ||
-          worldPos.x > GAME_W - MAP_EDGE_PADDING ||
-          worldPos.y < MAP_EDGE_PADDING ||
-          worldPos.y > GAME_H - MAP_EDGE_PADDING
+          worldPos.x < BALANCE.game.mapEdgePadding ||
+          worldPos.x > BALANCE.game.width - BALANCE.game.mapEdgePadding ||
+          worldPos.y < BALANCE.game.mapEdgePadding ||
+          worldPos.y > BALANCE.game.height - BALANCE.game.mapEdgePadding
         ) {
           ui.hint.text = "Can't place outside map."
           return
         }
-        if (worldPos.dist(base.pos) < BASE_SIZE) {
+        if (worldPos.dist(base.pos) < BALANCE.game.baseSize) {
           ui.hint.text = "Too close to the casino."
           return
         }
@@ -389,26 +675,27 @@
           ui.hint.text = "Towers can't be placed on the path."
           return
         }
-        if (state.money < TOWER_COST) {
+        if (state.money < BALANCE.economy.towerCost) {
           ui.hint.text = "Not enough Bribes."
           return
         }
 
-        const data = TOWER_DATA[selectedTower]
-        state.money -= TOWER_COST
-        ui.hint.text = `${data.name} deployed.`
+        const key = towerOrder[selectedTowerIdx]
+        const def = getCharacterDefinition("hero", key)
+        state.money -= BALANCE.economy.towerCost
+        ui.hint.text = `${def.name} deployed.`
 
-        const body = add([
-          pos(worldPos),
-          rect(28, 28),
-          anchor("center"),
-          color(data.color),
-          outline(2, rgb(230, 230, 230)),
-          z(8),
-        ])
+        const body = createCharacterEntity({
+          role: "hero",
+          type: key,
+          worldPos,
+          scaleFactor: 1,
+          tags: ["tower"],
+        })
 
+        attachStatBars(body, true)
         towers.push({
-          type: selectedTower,
+          type: key,
           ent: body,
           cooldown: 0,
         })
@@ -419,33 +706,41 @@
         placeTower(mousePos())
       })
 
-      onKeyPress("1", () => { selectedTower = 1 })
-      onKeyPress("2", () => { selectedTower = 2 })
-      onKeyPress("3", () => { selectedTower = 3 })
+      onKeyPress("1", () => { selectedTowerIdx = 0 })
+      onKeyPress("2", () => { selectedTowerIdx = 1 })
+      onKeyPress("3", () => { selectedTowerIdx = 2 })
 
       onUpdate(() => {
         spawnTimer += dt()
-        if (spawned < waveCount && spawnTimer >= spawnGap) {
+        if (waveManager.spawned < waveManager.waveCount && spawnTimer >= waveManager.spawnGap) {
           spawnTimer = 0
-          spawned++
+          waveManager.spawned += 1
           spawnEnemy()
         }
 
-        // Reset enemy speed before auras.
         enemies.forEach((e) => {
           if (!e.exists()) return
           e.currentSpeed = e.baseSpeed
         })
 
-        // Deaf aura slows enemies while in range.
+        // MP regen for hero units.
         towers.forEach((t) => {
-          if (t.type !== 3 || !t.ent.exists()) return
-          const d = TOWER_DATA[3]
+          if (!t.ent.exists()) return
+          const def = getCharacterDefinition("hero", t.type)
+          if (t.ent.stats.maxMp > 0) {
+            t.ent.stats.mp = Math.min(t.ent.stats.maxMp, t.ent.stats.mp + def.mpRegen * dt())
+          }
+        })
+
+        // Deaf aura slows enemies.
+        towers.forEach((t) => {
+          if (t.type !== "deaf" || !t.ent.exists()) return
+          const d = getCharacterDefinition("hero", "deaf")
           const slowAmount = Math.min(0.85, 0.4 + state.upgrades.deafSlowBonus)
           enemies.forEach((e) => {
             if (!e.exists()) return
             if (e.pos.dist(t.ent.pos) <= d.range) {
-              e.currentSpeed = Math.max(MIN_ENEMY_SPEED, e.currentSpeed * (1 - slowAmount))
+              e.currentSpeed = Math.max(BALANCE.game.minEnemySpeed, e.currentSpeed * (1 - slowAmount))
             }
           })
         })
@@ -458,11 +753,11 @@
           enemy.pathDist = Math.max(0, enemy.pathDist)
           enemy.pos = pointOnPath(enemy.pathDist)
 
-          if (enemy.pathDist >= TOTAL_PATH_LEN - PATH_END_THRESHOLD) {
+          if (enemy.pathDist >= TOTAL_PATH_LEN - BALANCE.game.pathEndThreshold) {
             removeEnemy(enemy)
-            state.baseHp -= BASE_DAMAGE
+            state.baseHp -= BALANCE.combat.baseDamageToCasino
             if (state.baseHp <= 0) {
-              go("gameover", { waveReached: state.wave })
+              go("gameover", { waveReached: waveManager.wave, levelReached: state.player.level })
             }
           }
         })
@@ -471,25 +766,28 @@
           if (!tower.ent.exists()) return
           tower.cooldown -= dt()
           const pos0 = tower.ent.pos
+          const def = getCharacterDefinition("hero", tower.type)
 
-          if (tower.type === 1) {
-            const data = TOWER_DATA[1]
-            if (tower.cooldown > 0) return
+          if (tower.type === "blind") {
+            if (tower.cooldown > 0 || tower.ent.stats.mp < def.abilityCost) return
             let best = null
             let bestDist = Infinity
             enemies.forEach((e) => {
               if (!e.exists()) return
               const d = e.pos.dist(pos0)
-              if (d <= data.range && d < bestDist) {
+              if (d <= def.range && d < bestDist) {
                 best = e
                 bestDist = d
               }
             })
             if (!best) return
 
-            tower.cooldown = data.fireRate
-            best.hp -= 8 + state.upgrades.blindDamageBonus
-            best.confusedUntil = Math.max(best.confusedUntil, time() + BLIND_CONFUSION_DURATION)
+            tower.cooldown = def.fireRate
+            tower.ent.stats.mp -= def.abilityCost
+
+            const raw = tower.ent.stats.attack + state.upgrades.blindDamageBonus
+            const result = applyDamage(tower.ent, best, raw)
+            best.confusedUntil = Math.max(best.confusedUntil, time() + BALANCE.combat.blindConfusionDuration)
 
             const delta = best.pos.sub(pos0)
             add([
@@ -503,32 +801,33 @@
               lifespan(0.08),
             ])
 
-            if (best.hp <= 0) killEnemy(best)
+            if (result.killed) killEnemy(best)
           }
 
-          if (tower.type === 2) {
-            const data = TOWER_DATA[2]
-            if (tower.cooldown > 0) return
+          if (tower.type === "legless") {
+            if (tower.cooldown > 0 || tower.ent.stats.mp < def.abilityCost) return
             let target = null
             let progress = -1
             enemies.forEach((e) => {
               if (!e.exists()) return
               const d = e.pos.dist(pos0)
-              if (d <= data.range && e.pathDist > progress) {
+              if (d <= def.range && e.pathDist > progress) {
                 progress = e.pathDist
                 target = e
               }
             })
             if (!target) return
 
-            tower.cooldown = data.fireRate
+            tower.cooldown = def.fireRate
+            tower.ent.stats.mp -= def.abilityCost
+
             const strikePos = vec2(target.pos.x, target.pos.y)
-            const aoe = data.aoeRadius
-            const dmg = 70 + state.upgrades.legDamageBonus
+            const aoe = def.aoeRadius
+            const dmg = tower.ent.stats.attack + state.upgrades.legDamageBonus
 
             const leg = add([
-              pos(strikePos.x, strikePos.y - LEG_DROP_HEIGHT),
-              rect(LEG_WIDTH, LEG_HEIGHT),
+              pos(strikePos.x, strikePos.y - BALANCE.visual.legDropHeight),
+              rect(BALANCE.visual.legWidth, BALANCE.visual.legHeight),
               anchor("center"),
               color(195, 220, 175),
               opacity(0.75),
@@ -540,29 +839,27 @@
             ])
 
             leg.onUpdate(() => {
-              leg.pos.y += LEG_DROP_SPEED * dt()
+              leg.pos.y += BALANCE.visual.legDropSpeed * dt()
               if (!leg.hit && leg.pos.y >= leg.floorY) {
                 leg.hit = true
                 leg.pos.y = leg.floorY
 
                 const wave = add([
                   pos(strikePos),
-                  circle(SHOCKWAVE_INITIAL_RADIUS),
+                  circle(BALANCE.visual.shockwaveInitialRadius),
                   anchor("center"),
                   color(255, 255, 255),
                   opacity(0.7),
                   z(26),
-                  {
-                    r: SHOCKWAVE_INITIAL_RADIUS,
-                  },
+                  { r: BALANCE.visual.shockwaveInitialRadius },
                 ])
 
                 wave.onUpdate(() => {
-                  wave.r += SHOCKWAVE_EXPAND_RATE * dt()
-                  wave.opacity -= SHOCKWAVE_FADE_RATE * dt()
+                  wave.r += BALANCE.visual.shockwaveExpandRate * dt()
+                  wave.opacity -= BALANCE.visual.shockwaveFadeRate * dt()
                   wave.scale = vec2(
-                    wave.r / SHOCKWAVE_INITIAL_RADIUS,
-                    wave.r / SHOCKWAVE_INITIAL_RADIUS,
+                    wave.r / BALANCE.visual.shockwaveInitialRadius,
+                    wave.r / BALANCE.visual.shockwaveInitialRadius,
                   )
                   if (wave.opacity <= 0) destroy(wave)
                 })
@@ -570,57 +867,69 @@
                 enemies.slice().forEach((e) => {
                   if (!e.exists()) return
                   if (e.pos.dist(strikePos) <= aoe) {
-                    e.hp -= dmg
-                    if (e.hp <= 0) killEnemy(e)
+                    const result = applyDamage(tower.ent, e, dmg)
+                    if (result.killed) killEnemy(e)
                   }
                 })
               }
 
               if (leg.hit) {
-                leg.opacity -= LEG_FADE_RATE * dt()
+                leg.opacity -= BALANCE.visual.legFadeRate * dt()
                 if (leg.opacity <= 0) destroy(leg)
               }
             })
           }
 
-          if (tower.type === 3) {
-            const data = TOWER_DATA[3]
-            if (tower.cooldown > 0) return
-            tower.cooldown = data.fireRate
+          if (tower.type === "deaf") {
+            if (tower.cooldown > 0 || tower.ent.stats.mp < def.abilityCost) return
+            tower.cooldown = def.fireRate
+            tower.ent.stats.mp -= def.abilityCost
+
             const pulse = add([
               pos(pos0),
-              circle(DEAF_PULSE_BASE_RADIUS),
+              circle(BALANCE.visual.deafPulseBaseRadius),
               anchor("center"),
               color(135, 190, 255),
               opacity(0.45),
               z(9),
-              { r: DEAF_PULSE_BASE_RADIUS },
+              { r: BALANCE.visual.deafPulseBaseRadius },
             ])
             pulse.onUpdate(() => {
-              pulse.r += DEAF_PULSE_EXPAND_RATE * dt()
-              pulse.scale = vec2(pulse.r / DEAF_PULSE_BASE_RADIUS, pulse.r / DEAF_PULSE_BASE_RADIUS)
-              pulse.opacity -= DEAF_PULSE_FADE_RATE * dt()
+              pulse.r += BALANCE.visual.deafPulseExpandRate * dt()
+              pulse.scale = vec2(
+                pulse.r / BALANCE.visual.deafPulseBaseRadius,
+                pulse.r / BALANCE.visual.deafPulseBaseRadius,
+              )
+              pulse.opacity -= BALANCE.visual.deafPulseFadeRate * dt()
               if (pulse.opacity <= 0) destroy(pulse)
             })
           }
         })
 
-        if (!waveClearing && spawned >= waveCount && enemies.length === 0) {
-          waveClearing = true
-          state.completedWave = state.wave
-          state.wave += 1
+        if (!waveManager.clearing && waveManager.spawned >= waveManager.waveCount && enemies.length === 0) {
+          waveManager.clearing = true
+          state.completedWave = waveManager.wave
+          state.wave = waveManager.wave + 1
           wait(0.5, () => go("draft", state))
         }
 
+        const expRatio = Math.max(0, Math.min(1, state.player.exp / state.player.expToNext))
+        ui.expFill.scale.x = expRatio
+        ui.expLabel.text = `EXP ${Math.floor(state.player.exp)} / ${state.player.expToNext}`
+
+        const selected = getCharacterDefinition("hero", towerOrder[selectedTowerIdx])
         ui.money.text = `Bribes: ${state.money}`
         ui.hp.text = `Casino HP: ${Math.max(0, state.baseHp)}`
-        ui.wave.text = `Wave: ${state.wave} (${spawned}/${waveCount})`
-        ui.tower.text = `Selected: ${TOWER_DATA[selectedTower].name} [1/2/3] | Cost: ${TOWER_COST}`
-        if (!ui.hint.text) ui.hint.text = "Click to place towers. Keep bureaucrats off the casino."
+        ui.wave.text = `Wave: ${waveManager.wave} (${waveManager.spawned}/${waveManager.waveCount})`
+        ui.level.text = `Level: ${state.player.level}`
+        ui.tower.text = `Selected: ${selected.name} [1/2/3] | Cost: ${BALANCE.economy.towerCost}`
+        if (!ui.hint.text) ui.hint.text = "Click to place characters and defend the casino."
       })
     })
 
-    go("start")
+    onLoad(() => {
+      go("start")
+    })
   </script>
 </body>
 </html>
