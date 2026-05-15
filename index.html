@@ -104,7 +104,7 @@
       hero: {
         blind: {
           name: "The Blind",
-          frame: 0,
+          frame: 16,
           className: "hero",
           range: 165,
           fireRate: 0.45,
@@ -114,7 +114,7 @@
         },
         legless: {
           name: "The Legless",
-          frame: 1,
+          frame: 17,
           className: "hero",
           range: 210,
           fireRate: 3.0,
@@ -125,7 +125,7 @@
         },
         deaf: {
           name: "The Deaf",
-          frame: 2,
+          frame: 18,
           className: "hero",
           range: 135,
           fireRate: 0.18,
@@ -396,6 +396,43 @@
           mpFill.pos = vec2(owner.pos.x - barW / 2, owner.pos.y + yOffset + 6)
           mpFill.scale.x = mpRatio
         }
+      })
+    }
+
+    function attachTowerVisualRig(owner, towerType) {
+      const palette = {
+        blind: [150, 150, 170],
+        legless: [130, 185, 110],
+        deaf: [95, 160, 235],
+      }
+      const [r, g, b] = palette[towerType] || [165, 165, 180]
+
+      const base = add([
+        pos(owner.pos),
+        rect(36, 12),
+        anchor("center"),
+        color(56, 64, 78),
+        outline(2, rgb(120, 135, 155)),
+        z(7),
+      ])
+      const turret = add([
+        pos(owner.pos),
+        rect(16, 8),
+        anchor("center"),
+        color(r, g, b),
+        outline(1, rgb(235, 235, 245)),
+        z(10),
+      ])
+
+      turret.onUpdate(() => {
+        if (!owner.exists()) {
+          if (base.exists()) destroy(base)
+          if (turret.exists()) destroy(turret)
+          return
+        }
+
+        base.pos = vec2(owner.pos.x, owner.pos.y + 16)
+        turret.pos = vec2(owner.pos.x + 10, owner.pos.y - 1)
       })
     }
 
@@ -764,6 +801,7 @@
           tags: ["tower"],
         })
 
+        attachTowerVisualRig(body, key)
         attachStatBars(body, true)
         towers.push({
           type: key,
