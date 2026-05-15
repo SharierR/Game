@@ -37,6 +37,7 @@
     const START_MONEY = 150
     const TOWER_COST = 50
     const PATH_WIDTH = 64
+    const WAVE_DIFFICULTY_MULTIPLIER = 1.2
     const ENEMY_REWARD = 10
     const BASE_DAMAGE = 10
     const BASE_SIZE = 62
@@ -329,7 +330,7 @@
       let spawned = 0
       let waveClearing = false
 
-      const waveScale = Math.pow(1.2, state.wave - 1)
+      const waveScale = Math.pow(WAVE_DIFFICULTY_MULTIPLIER, state.wave - 1)
       const waveCount = Math.max(1, Math.round(10 * waveScale))
       const enemyHp = Math.round(30 * waveScale)
       const spawnGap = Math.max(0.28, 0.75 - (state.wave - 1) * 0.02)
