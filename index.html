@@ -138,6 +138,7 @@
         grunt: {
           name: "Bureaucrat Grunt",
           frame: 8,
+          animFrames: [8, 9],
           className: "enemy",
           speed: 66,
           rewardMoney: 10,
@@ -146,7 +147,8 @@
         },
         rogue: {
           name: "Bureaucrat Rogue",
-          frame: 9,
+          frame: 10,
+          animFrames: [10, 11],
           className: "enemy",
           speed: 82,
           rewardMoney: 12,
@@ -155,7 +157,8 @@
         },
         tank: {
           name: "Bureaucrat Tank",
-          frame: 10,
+          frame: 12,
+          animFrames: [12, 13],
           className: "enemy",
           speed: 52,
           rewardMoney: 16,
@@ -357,6 +360,21 @@
       return ent
     }
 
+    function attachTwoFrameIdleAnimation(owner, frames, frameSeconds = 0.25) {
+      if (!frames || frames.length < 2) return
+      owner.animFrameTimer = 0
+      owner.animFrameIndex = 0
+
+      owner.onUpdate(() => {
+        if (!owner.exists()) return
+        owner.animFrameTimer += dt()
+        if (owner.animFrameTimer < frameSeconds) return
+        owner.animFrameTimer = 0
+        owner.animFrameIndex = (owner.animFrameIndex + 1) % frames.length
+        owner.frame = frames[owner.animFrameIndex]
+      })
+    }
+
     function attachStatBars(owner, showMp = true) {
       const barW = 34
       const barH = 4
@@ -492,6 +510,7 @@
     }
 
     function pickEnemyTypeForWave(wave) {
+      if (wave % 6 === 0) return Math.random() < 0.5 ? "tank" : "rogue"
       if (wave % 5 === 0) return "tank"
       if (wave % 3 === 0) return "rogue"
       return "grunt"
@@ -745,6 +764,7 @@
         enemy.rewardMoney = def.rewardMoney + Math.floor(waveManager.wave / 2)
         enemy.rewardExp = Math.round(def.rewardExp * Math.pow(1.05, waveManager.wave - 1))
 
+        attachTwoFrameIdleAnimation(enemy, def.animFrames, 0.22)
         attachStatBars(enemy, false)
         enemies.push(enemy)
       }
