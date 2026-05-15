@@ -124,6 +124,7 @@
     function makeInitialState() {
       return {
         wave: 1,
+        completedWave: 0,
         money: START_MONEY,
         baseHp: BASE_MAX_HP,
         upgrades: {
@@ -230,7 +231,7 @@
       const options = pickRandomUpgrades(3)
 
       add([
-        text(`Wave ${state.wave - 1} Cleared`, { size: 36 }),
+        text(`Wave ${state.completedWave || Math.max(0, state.wave - 1)} Cleared`, { size: 36 }),
         pos(center().x, 90),
         anchor("center"),
         color(220, 245, 255),
@@ -606,6 +607,7 @@
 
         if (!waveClearing && spawned >= waveCount && enemies.length === 0) {
           waveClearing = true
+          state.completedWave = state.wave
           state.wave += 1
           wait(0.5, () => go("draft", state))
         }
