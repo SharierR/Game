@@ -451,7 +451,11 @@
 
     function attachIdleAnimation(owner, frames, frameSeconds = BALANCE.visual.defaultIdleFrameSeconds) {
       if (!frames || frames.length === 0) return
-      const idleFrames = frames.length >= 2 ? frames.slice(0, 2) : [frames[0], frames[0]]
+      if (frames.length === 1) {
+        owner.frame = frames[0]
+        return
+      }
+      const idleFrames = frames.slice(0, 2)
       owner.animFrameTimer = 0
       owner.animFrameIndex = 0
       owner.frame = idleFrames[0]
@@ -601,6 +605,7 @@
     }
 
     function pickEnemyTypeForWave(wave) {
+      // Precedence: milestone waves first, then mixed waves, then simple divisibility.
       if (wave % 15 === 0) return "tank"
       if (wave % 10 === 0) return "tank"
       if (wave % 6 === 0) return Math.random() < 0.5 ? "tank" : "rogue"
@@ -843,7 +848,7 @@
       }
 
       function canCastAbility(tower, def) {
-        return tower.cooldown <= 0 && tower.ent.stats.mp >= def.abilityCost
+        return tower.ent.exists() && tower.cooldown <= 0 && tower.ent.stats.mp >= def.abilityCost
       }
 
       function spawnEnemy() {
@@ -957,7 +962,7 @@
         towers.forEach((t) => {
           if (!t.ent.exists()) return
           const def = getCharacterDefinition("hero", t.type)
-          if (t.ent.stats.maxMp > 0) {
+          if (t.ent.stats.maxMp > 0 && t.ent.stats.mp < t.ent.stats.maxMp) {
             t.ent.stats.mp = Math.min(t.ent.stats.maxMp, t.ent.stats.mp + def.mpRegen * dt())
           }
         })
