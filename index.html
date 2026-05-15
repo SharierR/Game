@@ -39,9 +39,20 @@
     const PATH_WIDTH = 64
     const ENEMY_REWARD = 10
     const BASE_DAMAGE = 10
+    const BASE_SIZE = 62
+    const MAP_EDGE_PADDING = 20
+    const PATH_PLACEMENT_BUFFER = 14
+    const MIN_ENEMY_SPEED = 20
+    const PATH_END_THRESHOLD = 1
     const EPSILON = 0.0001
+    const SEGMENT_START_T = 0
     const BLIND_CONFUSION_DURATION = 1.5
     const LEG_DROP_SPEED = 2400
+    const LEG_DROP_HEIGHT = 320
+    const LEG_WIDTH = 42
+    const LEG_HEIGHT = 230
+    const LEG_FADE_RATE = 4.2
+    const SHOCKWAVE_INITIAL_RADIUS = 24
     const SHOCKWAVE_EXPAND_RATE = 430
     const SHOCKWAVE_FADE_RATE = 2.5
     const DEAF_PULSE_BASE_RADIUS = 6
@@ -71,6 +82,7 @@
         color: rgb(38, 145, 64),
         range: 210,
         fireRate: 3.0,
+        aoeRadius: 110,
       },
       3: {
         name: "The Deaf",
@@ -140,25 +152,36 @@
     }
 
     function pointOnPath(dist) {
-      let d = Math.max(0, Math.min(TOTAL_PATH_LEN, dist))
+      let remainingDist = Math.max(0, Math.min(TOTAL_PATH_LEN, dist))
       for (let i = 0; i < SEGMENT_LENGTHS.length; i++) {
         const seg = SEGMENT_LENGTHS[i]
-        if (d <= seg) {
-          const t = seg === 0 ? 0 : d / seg
+        if (remainingDist <= seg) {
+          const t = seg === 0 ? SEGMENT_START_T : remainingDist / seg
           return WAYPOINTS[i].lerp(WAYPOINTS[i + 1], t)
         }
-        d -= seg
+        remainingDist -= seg
       }
       return WAYPOINTS[WAYPOINTS.length - 1]
     }
 
     function isOnPath(p) {
       for (let i = 0; i < WAYPOINTS.length - 1; i++) {
-        if (lineDistToPoint(p, WAYPOINTS[i], WAYPOINTS[i + 1]) <= PATH_WIDTH * 0.5 + 14) {
+        if (lineDistToPoint(p, WAYPOINTS[i], WAYPOINTS[i + 1]) <= PATH_WIDTH * 0.5 + PATH_PLACEMENT_BUFFER) {
           return true
         }
       }
       return false
+    }
+
+    function pickRandomUpgrades(count) {
+      const list = [...UPGRADE_POOL]
+      for (let i = list.length - 1; i > 0; i--) {
+        const j = Math.floor(rand(0, i + 1))
+        const tmp = list[i]
+        list[i] = list[j]
+        list[j] = tmp
+      }
+      return list.slice(0, count)
     }
 
     function drawPath() {
@@ -203,7 +226,7 @@
     })
 
     scene("draft", (state) => {
-      const options = [...UPGRADE_POOL].sort(() => rand(-1, 1)).slice(0, 3)
+      const options = pickRandomUpgrades(3)
 
       add([
         text(`Wave ${state.wave - 1} Cleared`, { size: 36 }),
@@ -276,7 +299,7 @@
 
       const base = add([
         pos(WAYPOINTS[WAYPOINTS.length - 1]),
-        rect(62, 62),
+        rect(BASE_SIZE, BASE_SIZE),
         anchor("center"),
         color(150, 125, 60),
         outline(4, rgb(255, 220, 130)),
@@ -347,11 +370,16 @@
       }
 
       function placeTower(worldPos) {
-        if (worldPos.x < 20 || worldPos.x > GAME_W - 20 || worldPos.y < 20 || worldPos.y > GAME_H - 20) {
+        if (
+          worldPos.x < MAP_EDGE_PADDING ||
+          worldPos.x > GAME_W - MAP_EDGE_PADDING ||
+          worldPos.y < MAP_EDGE_PADDING ||
+          worldPos.y > GAME_H - MAP_EDGE_PADDING
+        ) {
           ui.hint.text = "Can't place outside map."
           return
         }
-        if (worldPos.dist(base.pos) < 62) {
+        if (worldPos.dist(base.pos) < BASE_SIZE) {
           ui.hint.text = "Too close to the casino."
           return
         }
@@ -415,7 +443,7 @@
           enemies.forEach((e) => {
             if (!e.exists()) return
             if (e.pos.dist(t.ent.pos) <= d.range) {
-              e.currentSpeed = Math.max(20, e.currentSpeed * (1 - slowAmount))
+              e.currentSpeed = Math.max(MIN_ENEMY_SPEED, e.currentSpeed * (1 - slowAmount))
             }
           })
         })
@@ -428,7 +456,7 @@
           enemy.pathDist = Math.max(0, enemy.pathDist)
           enemy.pos = pointOnPath(enemy.pathDist)
 
-          if (enemy.pathDist >= TOTAL_PATH_LEN - 1) {
+          if (enemy.pathDist >= TOTAL_PATH_LEN - PATH_END_THRESHOLD) {
             removeEnemy(enemy)
             state.baseHp -= BASE_DAMAGE
             if (state.baseHp <= 0) {
@@ -493,12 +521,12 @@
 
             tower.cooldown = data.fireRate
             const strikePos = vec2(target.pos.x, target.pos.y)
-            const aoe = 110
+            const aoe = data.aoeRadius
             const dmg = 70 + state.upgrades.legDamageBonus
 
             const leg = add([
-              pos(strikePos.x, strikePos.y - 320),
-              rect(42, 230),
+              pos(strikePos.x, strikePos.y - LEG_DROP_HEIGHT),
+              rect(LEG_WIDTH, LEG_HEIGHT),
               anchor("center"),
               color(195, 220, 175),
               opacity(0.75),
@@ -517,20 +545,23 @@
 
                 const wave = add([
                   pos(strikePos),
-                  circle(24),
+                  circle(SHOCKWAVE_INITIAL_RADIUS),
                   anchor("center"),
                   color(255, 255, 255),
                   opacity(0.7),
                   z(26),
                   {
-                    r: 24,
+                    r: SHOCKWAVE_INITIAL_RADIUS,
                   },
                 ])
 
                 wave.onUpdate(() => {
                   wave.r += SHOCKWAVE_EXPAND_RATE * dt()
                   wave.opacity -= SHOCKWAVE_FADE_RATE * dt()
-                  wave.scale = vec2(wave.r / 24, wave.r / 24)
+                  wave.scale = vec2(
+                    wave.r / SHOCKWAVE_INITIAL_RADIUS,
+                    wave.r / SHOCKWAVE_INITIAL_RADIUS,
+                  )
                   if (wave.opacity <= 0) destroy(wave)
                 })
 
@@ -544,7 +575,7 @@
               }
 
               if (leg.hit) {
-                leg.opacity -= 4.2 * dt()
+                leg.opacity -= LEG_FADE_RATE * dt()
                 if (leg.opacity <= 0) destroy(leg)
               }
             })
