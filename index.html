@@ -32,6 +32,9 @@
     })
 
     const BALANCE = {
+      assets: {
+        characterSheetUrl: "https://github.com/user-attachments/assets/607c5542-10bd-419f-a71c-592401f64de7",
+      },
       game: {
         width: 800,
         height: 600,
@@ -67,11 +70,14 @@
         startExp: 0,
         expToNextBase: 90,
         expGrowth: 1.33,
+        upgradeBaseHeal: 10,
         levelUpBonuses: {
           blindDamageBonus: 1,
           legDamageBonus: 4,
           deafSlowBonus: 0.02,
           baseHeal: 3,
+          towerHeal: 10,
+          towerMpRestoreRatio: 0.4,
         },
       },
       visual: {
@@ -89,12 +95,16 @@
         floatingLife: 0.65,
         floatingRiseSpeed: 42,
         floatingFadeSpeed: 1.6,
+        defaultIdleFrameSeconds: 0.25,
+        enemyIdleFrameSeconds: 0.22,
+        statBarWidth: 34,
+        statBarHeight: 4,
+        statBarYOffset: -34,
       },
     }
 
     // Sprite sheet provided by user.
-    const CHARACTER_SHEET_URL = "https://github.com/user-attachments/assets/607c5542-10bd-419f-a71c-592401f64de7"
-    loadSprite("characterSheet", CHARACTER_SHEET_URL, {
+    loadSprite("characterSheet", BALANCE.assets.characterSheetUrl, {
       sliceX: 8,
       sliceY: 3,
     })
@@ -210,7 +220,7 @@
       {
         title: "Backroom Insurance",
         desc: "Base heals +10 HP (up to max).",
-        apply: (s) => { s.baseHp = Math.min(BALANCE.game.baseMaxHp, s.baseHp + 10) },
+        apply: (s) => { s.baseHp = Math.min(BALANCE.game.baseMaxHp, s.baseHp + BALANCE.progression.upgradeBaseHeal) },
       },
     ]
 
@@ -435,7 +445,7 @@
       return ent
     }
 
-    function attachTwoFrameIdleAnimation(owner, frames, frameSeconds = 0.25) {
+    function attachTwoFrameIdleAnimation(owner, frames, frameSeconds = BALANCE.visual.defaultIdleFrameSeconds) {
       if (!frames || frames.length < 2) return
       owner.animFrameTimer = 0
       owner.animFrameIndex = 0
@@ -451,9 +461,9 @@
     }
 
     function attachStatBars(owner, showMp = true) {
-      const barW = 34
-      const barH = 4
-      const yOffset = -34
+      const barW = BALANCE.visual.statBarWidth
+      const barH = BALANCE.visual.statBarHeight
+      const yOffset = BALANCE.visual.statBarYOffset
 
       const hpBg = add([pos(owner.pos), rect(barW, barH), anchor("left"), color(18, 18, 18), opacity(0.8), z(30)])
       const hpFill = add([pos(owner.pos), rect(barW, barH), anchor("left"), color(235, 70, 85), z(31)])
@@ -811,9 +821,12 @@
 
           towers.forEach((t) => {
             if (!t.ent.exists()) return
-            t.ent.stats.hp = Math.min(t.ent.stats.maxHp, t.ent.stats.hp + 10)
+            t.ent.stats.hp = Math.min(t.ent.stats.maxHp, t.ent.stats.hp + BALANCE.progression.levelUpBonuses.towerHeal)
             if (t.ent.stats.maxMp > 0) {
-              t.ent.stats.mp = Math.min(t.ent.stats.maxMp, t.ent.stats.mp + Math.round(t.ent.stats.maxMp * 0.4))
+              t.ent.stats.mp = Math.min(
+                t.ent.stats.maxMp,
+                t.ent.stats.mp + Math.round(t.ent.stats.maxMp * BALANCE.progression.levelUpBonuses.towerMpRestoreRatio),
+              )
             }
           })
 
@@ -840,7 +853,7 @@
         enemy.rewardMoney = def.rewardMoney + Math.floor(waveManager.wave / 2)
         enemy.rewardExp = Math.round(def.rewardExp * Math.pow(1.05, waveManager.wave - 1))
 
-        attachTwoFrameIdleAnimation(enemy, def.animFrames, 0.22)
+        attachTwoFrameIdleAnimation(enemy, def.animFrames, BALANCE.visual.enemyIdleFrameSeconds)
         attachStatBars(enemy, false)
         enemies.push(enemy)
       }
