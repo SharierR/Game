@@ -523,25 +523,23 @@ class GameController {
   spawnEnemy(queueItem) {
     const enemyData = this.waveManager.createEnemyData(queueItem, this.currentWaveConfig.difficultyScale)
 
-    // Create 3D Model
+    // Create 3D Model using desktop character pack
     let model = null
-    if (queueItem.type === 'boss') {
-      if (queueItem.bossType === 'BoneGolem') model = modelFactory.createBossBoneGolem()
-      else if (queueItem.bossType === 'Dragon') model = modelFactory.createBossDragon()
-      else model = modelFactory.createBossVoidArchon()
+    if (enemyData.type === 'boss') {
+      if (enemyData.bossType === 'PuglinWarmaster') model = modelFactory.createBossPuglinChieftain()
+      else if (enemyData.bossType === 'ImpFiendlord') model = modelFactory.createBossImpFiendlord()
+      else if (enemyData.bossType === 'VoidTitanPuglin') model = modelFactory.createBossVoidBehemoth()
+      else model = modelFactory.createBossBoneGolem()
     } else {
-      switch (queueItem.type) {
-        case 'goblin': model = modelFactory.createGoblin(); break
-        case 'footman': model = modelFactory.createFootman(); break
-        case 'imp_magma': model = modelFactory.createImp(0xff4411); break
-        case 'imp_grounded': model = modelFactory.createImp(0xaa9944); break
-        case 'puglin_ironclad': model = modelFactory.createPuglin(); break
-        case 'banshee': model = modelFactory.createBanshee(); break
+      if (enemyData.modelType === 'imp') {
+        model = modelFactory.createImp(enemyData.variant || 1)
+      } else {
+        model = modelFactory.createPuglin(enemyData.variant || 1)
       }
     }
-    if (!model) model = modelFactory.createGoblin()
+    if (!model) model = modelFactory.createImp(1)
 
-    if (queueItem.isElite) {
+    if (queueItem.isElite && enemyData.type !== 'boss') {
       modelFactory.makeElite(model, queueItem.affix?.name)
     }
 
@@ -555,23 +553,31 @@ class GameController {
       position: new THREE.Vector3(startPos.x, 0, startPos.z),
       currentWaypointIndex: 0,
       tParam: 0,
+      animSeed: Math.random() * 10,
       alive: true
     }
 
     this.enemies.push(enemy)
   }
 
-  refreshEnemyModels(type) {
+  refreshEnemyModels() {
     for (const e of this.enemies) {
       if (!e.alive) continue
       let newModel = null
-      if (type === 'imp' && (e.type === 'imp_magma' || e.type === 'imp_grounded')) {
-        const tint = (e.type === 'imp_magma') ? 0xff4411 : 0xaa9944
-        newModel = modelFactory.createImp(tint)
-      } else if (type === 'puglin' && e.type === 'puglin_ironclad') {
-        newModel = modelFactory.createPuglin()
+      if (e.type === 'boss') {
+        if (e.bossType === 'PuglinWarmaster') newModel = modelFactory.createBossPuglinChieftain()
+        else if (e.bossType === 'ImpFiendlord') newModel = modelFactory.createBossImpFiendlord()
+        else if (e.bossType === 'VoidTitanPuglin') newModel = modelFactory.createBossVoidBehemoth()
+      } else if (e.modelType === 'imp') {
+        newModel = modelFactory.createImp(e.variant || 1)
+      } else if (e.modelType === 'puglin') {
+        newModel = modelFactory.createPuglin(e.variant || 1)
       }
+
       if (newModel) {
+        if (e.isElite && e.type !== 'boss') {
+          modelFactory.makeElite(newModel, e.affix?.name)
+        }
         newModel.position.copy(e.model.position)
         newModel.rotation.copy(e.model.rotation)
         this.scene.remove(e.model)
@@ -1079,6 +1085,16 @@ class GameController {
               e.model.lookAt(currentTargetPoint.x, e.position.y, currentTargetPoint.z)
             }
             e.model.position.copy(e.position)
+
+            // Dynamic running animation for character models
+            if (e.model && e.model.innerModel) {
+              const runSpeed = 10 * (effectiveSpeed / 2.2)
+              const runCycle = performance.now() * 0.001 * runSpeed + (e.animSeed || 0)
+              // Running bounce & waddle
+              e.model.innerModel.rotation.z = Math.sin(runCycle) * 0.12
+              e.model.innerModel.position.y = Math.abs(Math.sin(runCycle * 2)) * 0.12
+              e.model.innerModel.rotation.x = 0.08 + Math.cos(runCycle) * 0.05
+            }
           }
         }
       }

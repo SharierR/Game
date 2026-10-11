@@ -127,22 +127,22 @@ class WaveManager {
     const isBossWave = (wave % 5 === 0)
     let bossType = null
     if (isBossWave) {
-      if (wave === 5) bossType = 'BoneGolem'
-      else if (wave === 10) bossType = 'Dragon'
-      else bossType = 'VoidArchon'
+      if (wave === 5) bossType = 'PuglinWarmaster'
+      else if (wave === 10) bossType = 'ImpFiendlord'
+      else bossType = 'VoidTitanPuglin'
     }
 
     // Exponential-linear difficulty scaling (higher challenge)
     const difficultyScale = Math.pow(1.22, wave - 1) * (1 + wave * 0.08)
 
-    // Calculate enemy composition
+    // Calculate enemy composition using desktop character pack models
     const spawnQueue = []
 
     if (isBossWave) {
       // Boss waves have minor escort minions + 1 massive Boss
       const minionCount = 8 + Math.floor(wave * 1.2)
       for (let i = 0; i < minionCount; i++) {
-        const types = ['goblin', 'imp_magma', 'puglin_ironclad', 'imp_grounded']
+        const types = ['imp_magma', 'puglin_ironclad', 'imp_grounded', 'puglin_swift', 'imp_frost', 'puglin_mystic']
         spawnQueue.push({
           type: types[i % types.length],
           isElite: (i % 3 === 0),
@@ -157,26 +157,28 @@ class WaveManager {
         delay: (minionCount + 1) * 0.65 + 1.2
       })
     } else {
-      // Normal waves: Scaling count of goblins, footmen, counter imps, puglins, and banshees
+      // Normal waves: Rich distribution of Imps and Puglins with counter traits
       const totalCount = Math.min(50, Math.round(10 + wave * 2.8))
       const eliteChance = Math.min(0.45, Math.max(0, (wave - 1) * 0.06))
 
       for (let i = 0; i < totalCount; i++) {
-        let type = 'goblin'
+        let type = 'imp_grounded'
         const r = Math.random()
 
-        if (r < 0.25) {
-          type = 'imp_grounded' // Grounded Imp (Imp.glb) - weak to Ballista
-        } else if (r < 0.48) {
-          type = 'imp_magma' // Magma Imp (Imp.glb) - weak to Frost
-        } else if (r < 0.68) {
-          type = 'puglin_ironclad' // Ironclad Puglin (Puglin.glb) - tanky, weak to Storm/Void
-        } else if (wave >= 2 && r < 0.85) {
-          type = 'footman'
-        } else if (wave >= 4 && r < 0.95) {
-          type = 'banshee'
+        if (r < 0.22) {
+          type = 'imp_grounded' // Green Imp (Variant 2) - Negates Storm, Weak: Ballista
+        } else if (r < 0.42) {
+          type = 'imp_magma' // Red Imp (Variant 1) - Negates Fire, Weak: Frost
+        } else if (r < 0.60) {
+          type = 'puglin_ironclad' // Red Puglin (Variant 1) - Negates Phys, Weak: Void
+        } else if (r < 0.78) {
+          type = 'puglin_swift' // Green Puglin (Variant 2) - Fast Runner, Weak: Storm
+        } else if (wave >= 2 && r < 0.90) {
+          type = 'imp_frost' // Cyan Imp (Variant 3) - Negates Frost, Weak: Fire
+        } else if (wave >= 3) {
+          type = 'puglin_mystic' // Blue Striped Puglin (Variant 3) - Arcane Tank, Weak: Ballista
         } else {
-          type = 'goblin'
+          type = 'imp_grounded'
         }
 
         const isElite = (wave >= 2) && (Math.random() < eliteChance)
@@ -203,34 +205,23 @@ class WaveManager {
 
   // Create an enemy instance data based on its type and current difficulty
   createEnemyData(config, difficultyScale) {
-    let baseHp = 120
+    let baseHp = 140
     let baseSpeed = 2.4
-    let armor = 8
-    let magicResist = 8
-    let xpReward = 15
-    let goldReward = 8
+    let armor = 12
+    let magicResist = 12
+    let xpReward = 16
+    let goldReward = 10
     let counterName = ''
     let resistsType = null
     let weakToType = null
+    let modelType = 'imp'
+    let variant = 1
 
     switch (config.type) {
-      case 'goblin':
-        baseHp = 110
-        baseSpeed = 3.3
-        armor = 4
-        magicResist = 4
-        goldReward = 6
-        xpReward = 12
-        break
-      case 'footman':
-        baseHp = 260
-        baseSpeed = 2.0
-        armor = 30
-        magicResist = 12
-        goldReward = 11
-        xpReward = 22
-        break
+      // 1. RED IMP (Magma Imp)
       case 'imp_magma':
+        modelType = 'imp'
+        variant = 1
         baseHp = 380
         baseSpeed = 2.4
         armor = 18
@@ -241,47 +232,106 @@ class WaveManager {
         weakToType = 'frost'
         counterName = 'Magma Imp [Negates Fire | Weak: Frost]'
         break
-      case 'puglin_ironclad':
-        baseHp = 780
-        baseSpeed = 1.3
-        armor = 65
-        magicResist = 15
-        goldReward = 26
-        xpReward = 52
-        resistsType = 'physical'
-        weakToType = 'lightning'
-        counterName = 'Ironclad Puglin [Negates Phys | Weak: Storm]'
-        break
+
+      // 2. GREEN IMP (Grounded / Earth Imp)
+      case 'goblin':
       case 'imp_grounded':
-        baseHp = 360
-        baseSpeed = 2.5
-        armor = 35
+        modelType = 'imp'
+        variant = 2
+        baseHp = 340
+        baseSpeed = 2.7
+        armor = 28
         magicResist = 40
-        goldReward = 16
-        xpReward = 32
+        goldReward = 15
+        xpReward = 30
         resistsType = 'lightning'
         weakToType = 'physical'
         counterName = 'Grounded Imp [Negates Storm | Weak: Ballista]'
         break
+
+      // 3. CYAN IMP (Frost / Spectral Imp)
       case 'banshee':
-        baseHp = 320
-        baseSpeed = 2.6
-        armor = 0
-        magicResist = 30
-        goldReward = 18
-        xpReward = 36
-        resistsType = 'void'
-        weakToType = 'fire'
-        counterName = 'Void Specter [Negates Void | Weak: Fire]'
-        break
-      case 'boss':
-        baseHp = 4500
-        baseSpeed = 1.0
-        armor = 60
+      case 'imp_frost':
+        modelType = 'imp'
+        variant = 3
+        baseHp = 360
+        baseSpeed = 2.5
+        armor = 14
         magicResist = 50
-        goldReward = 150
-        xpReward = 300
-        counterName = 'Titan Boss'
+        goldReward = 18
+        xpReward = 35
+        resistsType = 'frost'
+        weakToType = 'fire'
+        counterName = 'Frost Imp [Negates Frost | Weak: Ignis]'
+        break
+
+      // 4. RED PUGLIN (Ironclad Puglin)
+      case 'footman':
+      case 'puglin_ironclad':
+        modelType = 'puglin'
+        variant = 1
+        baseHp = 780
+        baseSpeed = 1.35
+        armor = 70
+        magicResist = 20
+        goldReward = 28
+        xpReward = 55
+        resistsType = 'physical'
+        weakToType = 'void'
+        counterName = 'Ironclad Puglin [Negates Phys | Weak: Void]'
+        break
+
+      // 5. GREEN PUGLIN (Swift Scout Puglin)
+      case 'puglin_swift':
+        modelType = 'puglin'
+        variant = 2
+        baseHp = 320
+        baseSpeed = 3.4
+        armor = 15
+        magicResist = 15
+        goldReward = 18
+        xpReward = 34
+        resistsType = 'void'
+        weakToType = 'lightning'
+        counterName = 'Swift Puglin [Negates Void | Weak: Storm]'
+        break
+
+      // 6. BLUE STRIPED PUGLIN (Mystic Rune Puglin)
+      case 'puglin_mystic':
+        modelType = 'puglin'
+        variant = 3
+        baseHp = 920
+        baseSpeed = 1.2
+        armor = 50
+        magicResist = 60
+        goldReward = 34
+        xpReward = 65
+        resistsType = 'lightning'
+        weakToType = 'physical'
+        counterName = 'Mystic Puglin [Negates Storm | Weak: Ballista]'
+        break
+
+      // BOSS TITANS
+      case 'boss':
+        baseHp = 4800
+        baseSpeed = 1.05
+        armor = 65
+        magicResist = 55
+        goldReward = 180
+        xpReward = 360
+        if (config.bossType === 'PuglinWarmaster') {
+          modelType = 'puglin'
+          variant = 1
+          counterName = 'Puglin Warmaster [Titan Boss]'
+        } else if (config.bossType === 'ImpFiendlord') {
+          modelType = 'imp'
+          variant = 1
+          counterName = 'Arch-Demon Imp [Infernal Boss]'
+        } else {
+          modelType = 'puglin'
+          variant = 3
+          counterName = 'Malakor Void Titan [Abyssal Boss]'
+        }
         break
     }
 
@@ -289,6 +339,8 @@ class WaveManager {
     const enemyData = {
       type: config.type,
       bossType: config.bossType,
+      modelType,
+      variant,
       counterName,
       resistsType,
       weakToType,

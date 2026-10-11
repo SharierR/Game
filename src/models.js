@@ -1,11 +1,77 @@
-// Procedural 3D Model Factory for Three.js
+// Procedural & High-Poly GLTF 3D Model Factory for Three.js
 // Creates detailed 3D models for Heroes, Nexus, Enemies, Bosses, and Projectiles.
 
 class ModelFactory {
   constructor() {
     this.materials = this.initMaterials()
     this.gltfModels = {}
+    this.charTextures = { imp: {}, puglin: {} }
+    this.initCharacterTextures()
     this.initGLTFLoader()
+  }
+
+  // Reliable SkinnedMesh hierarchy clone with bone rebinding
+  cloneWithSkeleton(source) {
+    if (!source) return null
+    if (typeof THREE.SkeletonUtils !== 'undefined' && typeof THREE.SkeletonUtils.clone === 'function') {
+      return THREE.SkeletonUtils.clone(source)
+    }
+
+    const sourceLookup = new Map()
+    const cloneLookup = new Map()
+    const clone = source.clone()
+
+    function parallelTraverse(a, b, callback) {
+      callback(a, b)
+      for (let i = 0; i < a.children.length; i++) {
+        if (b.children[i]) {
+          parallelTraverse(a.children[i], b.children[i], callback)
+        }
+      }
+    }
+
+    parallelTraverse(source, clone, (sourceNode, clonedNode) => {
+      sourceLookup.set(clonedNode, sourceNode)
+      cloneLookup.set(sourceNode, clonedNode)
+    })
+
+    clone.traverse((node) => {
+      if (!node.isSkinnedMesh) return
+      const clonedMesh = node
+      const sourceMesh = sourceLookup.get(node)
+      if (sourceMesh && sourceMesh.skeleton) {
+        const sourceBones = sourceMesh.skeleton.bones
+        clonedMesh.skeleton = sourceMesh.skeleton.clone()
+        clonedMesh.bindMatrix.copy(sourceMesh.bindMatrix)
+        clonedMesh.skeleton.bones = sourceBones.map((bone) => cloneLookup.get(bone) || bone)
+        clonedMesh.bind(clonedMesh.skeleton, clonedMesh.bindMatrix)
+      }
+    })
+    return clone
+  }
+
+  initCharacterTextures() {
+    const texLoader = new THREE.TextureLoader()
+    const loadTex = (path) => {
+      return texLoader.load(path, (t) => {
+        t.flipY = false
+        t.encoding = THREE.sRGBEncoding
+        t.needsUpdate = true
+        if (window.game && window.game.refreshEnemyModels) {
+          window.game.refreshEnemyModels()
+        }
+      }, undefined, (e) => console.warn("Character texture load fallback:", path, e))
+    }
+
+    // Imp variations (1: Red Magma, 2: Green Earth, 3: Cyan Frost)
+    this.charTextures.imp[1] = loadTex('assets/characters/Textures/T_Imp_BaseColor_1.png')
+    this.charTextures.imp[2] = loadTex('assets/characters/Textures/T_Imp_BaseColor_2.png')
+    this.charTextures.imp[3] = loadTex('assets/characters/Textures/T_Imp_BaseColor_3.png')
+
+    // Puglin variations (1: Red Ironclad, 2: Green Swift, 3: Blue Striped Mystic)
+    this.charTextures.puglin[1] = loadTex('assets/characters/Textures/T_Puglin_BaseColor_1.png')
+    this.charTextures.puglin[2] = loadTex('assets/characters/Textures/T_Puglin_BaseColor_2.png')
+    this.charTextures.puglin[3] = loadTex('assets/characters/Textures/T_Puglin_BaseColor_3.png')
   }
 
   initGLTFLoader() {
@@ -684,48 +750,105 @@ class ModelFactory {
   // DESKTOP GLTF/GLB MONSTER & SCENERY ASSETS
   // ==========================================
 
-  // Imp Monster (Grounded / Magma Imp)
-  createImp(tintColor = null) {
+  // Imp Monster (3 Visual Texture Variations from desktop pack)
+  // variant: 1 (Red Magma), 2 (Green Earth/Forest), 3 (Blue/Cyan Frost/Spectral)
+  createImp(variant = 1) {
     if (this.gltfModels.imp) {
-      const clone = this.gltfModels.imp.clone(true)
+      const clone = this.cloneWithSkeleton(this.gltfModels.imp)
       clone.scale.set(0.65, 0.65, 0.65)
+
+      const texture = this.charTextures.imp[variant] || this.charTextures.imp[1]
+
       clone.traverse(child => {
         if (child.isMesh) {
           child.castShadow = true
-          if (tintColor && child.material) {
+          child.receiveShadow = true
+          if (child.material) {
             child.material = child.material.clone()
-            child.material.color.set(tintColor)
+            if (texture) {
+              child.material.map = texture
+            }
+            child.material.skinning = true
+            child.material.needsUpdate = true
           }
         }
       })
       const wrapper = new THREE.Group()
       wrapper.add(clone)
+      wrapper.innerModel = clone
+      wrapper.modelType = 'imp'
+      wrapper.variant = variant
       return wrapper
     }
     // Fallback procedural imp
     return this.createGoblin()
   }
 
-  // Puglin Monster (Ironclad / Brutal Puglin)
-  createPuglin(tintColor = null) {
+  // Puglin Monster (3 Visual Texture Variations from desktop pack)
+  // variant: 1 (Red Ironclad), 2 (Green Swift/Toxic), 3 (Blue Striped Mystic)
+  createPuglin(variant = 1) {
     if (this.gltfModels.puglin) {
-      const clone = this.gltfModels.puglin.clone(true)
+      const clone = this.cloneWithSkeleton(this.gltfModels.puglin)
       clone.scale.set(0.75, 0.75, 0.75)
+
+      const texture = this.charTextures.puglin[variant] || this.charTextures.puglin[1]
+
       clone.traverse(child => {
         if (child.isMesh) {
           child.castShadow = true
-          if (tintColor && child.material) {
+          child.receiveShadow = true
+          if (child.material) {
             child.material = child.material.clone()
-            child.material.color.set(tintColor)
+            if (texture) {
+              child.material.map = texture
+            }
+            child.material.skinning = true
+            child.material.needsUpdate = true
           }
         }
       })
       const wrapper = new THREE.Group()
       wrapper.add(clone)
+      wrapper.innerModel = clone
+      wrapper.modelType = 'puglin'
+      wrapper.variant = variant
       return wrapper
     }
     // Fallback procedural ogre
     return this.createOgre()
+  }
+
+  // Wave 5 Boss: Colossal Puglin Warmaster
+  createBossPuglinChieftain() {
+    if (this.gltfModels.puglin) {
+      const boss = this.createPuglin(1)
+      boss.scale.set(1.9, 1.9, 1.9)
+      this.makeElite(boss, 'Juggernaut')
+      return boss
+    }
+    return this.createBossBoneGolem()
+  }
+
+  // Wave 10 Boss: Arch-Demon Imp Fiendlord
+  createBossImpFiendlord() {
+    if (this.gltfModels.imp) {
+      const boss = this.createImp(1)
+      boss.scale.set(1.85, 1.85, 1.85)
+      this.makeElite(boss, 'Vampiric')
+      return boss
+    }
+    return this.createBossDragon()
+  }
+
+  // Wave 15 Boss: Malakor the Void Titan Puglin
+  createBossVoidBehemoth() {
+    if (this.gltfModels.puglin) {
+      const boss = this.createPuglin(3)
+      boss.scale.set(2.4, 2.4, 2.4)
+      this.makeElite(boss, 'Shielded')
+      return boss
+    }
+    return this.createBossVoidArchon()
   }
 
   // LEGENDARY SUMMONED HERO: CELESTIAL ARCHON
