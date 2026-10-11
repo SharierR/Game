@@ -36,6 +36,17 @@
     const DEAF_PULSE_EXPAND_RATE = 250
     const DEAF_PULSE_FADE_RATE = 1.8
 
+    // ---- roguelike block sprites ----
+    loadSprite("path_tile", "sprites/path_tile.png")
+    loadSprite("enemy", "sprites/enemy.png")
+    loadSprite("tower_blind", "sprites/tower_blind.png")
+    loadSprite("tower_legless", "sprites/tower_legless.png")
+    loadSprite("tower_deaf", "sprites/tower_deaf.png")
+    loadSprite("casino", "sprites/casino.png")
+    loadSprite("pellet", "sprites/pellet.png")
+    loadSprite("shockwave", "sprites/shockwave.png")
+    loadSprite("pulse", "sprites/pulse.png")
+
     const WAYPOINTS = [
       vec2(40, 90),
       vec2(250, 90),
@@ -163,21 +174,25 @@
     }
 
     function drawPath() {
+      const TILE = 64
       for (let i = 0; i < WAYPOINTS.length - 1; i++) {
         const a = WAYPOINTS[i]
         const b = WAYPOINTS[i + 1]
         const d = b.sub(a)
         const len = d.len()
         const ang = d.angle()
-        add([
-          pos(a),
-          rect(len, PATH_WIDTH),
-          anchor("left"),
-          rotate(ang),
-          color(80, 94, 112),
-          opacity(0.95),
-          z(0),
-        ])
+        const count = Math.ceil(len / TILE)
+        for (let j = 0; j < count; j++) {
+          const t = (j * TILE + TILE / 2) / len
+          add([
+            pos(a.add(d.scale(t))),
+            sprite("path_tile"),
+            anchor("center"),
+            rotate(ang),
+            opacity(0.95),
+            z(0),
+          ])
+        }
       }
     }
 
@@ -277,18 +292,16 @@
 
       const base = add([
         pos(WAYPOINTS[WAYPOINTS.length - 1]),
-        rect(BASE_SIZE, BASE_SIZE),
+        sprite("casino"),
         anchor("center"),
-        color(150, 125, 60),
-        outline(4, rgb(255, 220, 130)),
         z(3),
       ])
 
       add([
-        text("CASINO", { size: 14 }),
+        text("CASINO", { size: 12 }),
         pos(base.pos.x, base.pos.y),
         anchor("center"),
-        color(30, 20, 8),
+        color(255, 224, 150),
         z(4),
       ])
 
@@ -315,9 +328,8 @@
       function spawnEnemy() {
         const enemy = add([
           pos(pointOnPath(0)),
-          rect(24, 24),
+          sprite("enemy"),
           anchor("center"),
-          color(220, 55, 65),
           area(),
           z(6),
           "enemy",
@@ -374,18 +386,30 @@
         state.money -= TOWER_COST
         ui.hint.text = `${data.name} deployed.`
 
+        let towerSprite = "tower_blind"
+        if (selectedTower === 2) towerSprite = "tower_legless"
+        else if (selectedTower === 3) towerSprite = "tower_deaf"
         const body = add([
           pos(worldPos),
-          rect(28, 28),
+          sprite(towerSprite),
           anchor("center"),
-          color(data.color),
-          outline(2, rgb(230, 230, 230)),
           z(8),
         ])
 
+        const dataT = TOWER_DATA[selectedTower]
+        const rangeInd = add([
+          pos(worldPos),
+          circle(dataT.range),
+          anchor("center"),
+          color(255, 255, 255, 0),
+          outline(1, rgba(200, 220, 255, 0.25)),
+          opacity(0),
+          z(5),
+        ])
         towers.push({
           type: selectedTower,
           ent: body,
+          range: rangeInd,
           cooldown: 0,
         })
       }
@@ -395,9 +419,17 @@
         placeTower(mousePos())
       })
 
-      onKeyPress("1", () => { selectedTower = 1 })
-      onKeyPress("2", () => { selectedTower = 2 })
-      onKeyPress("3", () => { selectedTower = 3 })
+      onKeyPress("1", () => { selectedTower = 1; updateTowerUI() })
+      onKeyPress("2", () => { selectedTower = 2; updateTowerUI() })
+      onKeyPress("3", () => { selectedTower = 3; updateTowerUI() })
+
+      function updateTowerUI() {
+        towers.forEach((t) => {
+          if (!t.ent.exists() || !t.range.exists()) return
+          t.range.pos = t.ent.pos
+          t.range.opacity = (selectedTower === t.type && mousePos().dist(t.ent.pos) < 40) ? 0.35 : 0
+        })
+      }
 
       onUpdate(() => {
         spawnTimer += dt()
@@ -432,7 +464,12 @@
           const speed = confused ? enemy.baseSpeed : enemy.currentSpeed
           enemy.pathDist += (confused ? -1 : 1) * speed * dt()
           enemy.pathDist = Math.max(0, enemy.pathDist)
-          enemy.pos = pointOnPath(enemy.pathDist)
+          let p = pointOnPath(enemy.pathDist)
+          if (confused) {
+            const t = time() * 40
+            p = p.add(vec2(Math.sin(t) * 1.8, Math.cos(t * 1.3) * 1.8))
+          }
+          enemy.pos = p
 
           if (enemy.pathDist >= TOTAL_PATH_LEN - PATH_END_THRESHOLD) {
             removeEnemy(enemy)
@@ -470,10 +507,10 @@
             const delta = best.pos.sub(pos0)
             add([
               pos(pos0),
-              rect(delta.len(), 3),
+              sprite("pellet"),
+              anchor("center"),
               rotate(delta.angle()),
-              anchor("left"),
-              color(170, 170, 210),
+              scale(vec2(Math.max(0.25, delta.len() / 32), 0.25)),
               opacity(0.9),
               z(20),
               lifespan(0.08),
@@ -523,9 +560,8 @@
 
                 const wave = add([
                   pos(strikePos),
-                  circle(SHOCKWAVE_INITIAL_RADIUS),
+                  sprite("shockwave"),
                   anchor("center"),
-                  color(255, 255, 255),
                   opacity(0.7),
                   z(26),
                   {
@@ -565,9 +601,8 @@
             tower.cooldown = data.fireRate
             const pulse = add([
               pos(pos0),
-              circle(DEAF_PULSE_BASE_RADIUS),
+              sprite("pulse"),
               anchor("center"),
-              color(135, 190, 255),
               opacity(0.45),
               z(9),
               { r: DEAF_PULSE_BASE_RADIUS },
@@ -593,6 +628,7 @@
         ui.wave.text = `Wave: ${state.wave} (${spawned}/${waveCount})`
         ui.tower.text = `Selected: ${TOWER_DATA[selectedTower].name} [1/2/3] | Cost: ${TOWER_COST}`
         if (!ui.hint.text) ui.hint.text = "Click to place towers. Keep bureaucrats off the casino."
+        updateTowerUI()
       })
     })
 
