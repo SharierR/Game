@@ -4,6 +4,36 @@
 class ModelFactory {
   constructor() {
     this.materials = this.initMaterials()
+    this.gltfModels = {}
+    this.initGLTFLoader()
+  }
+
+  initGLTFLoader() {
+    if (typeof THREE.GLTFLoader === 'function') {
+      const loader = new THREE.GLTFLoader()
+
+      loader.load('assets/characters/Imp.glb', (gltf) => {
+        this.gltfModels.imp = gltf.scene
+        console.log("Imp.glb loaded successfully")
+      }, undefined, (e) => console.warn("Imp.glb load fallback:", e))
+
+      loader.load('assets/characters/Puglin.glb', (gltf) => {
+        this.gltfModels.puglin = gltf.scene
+        console.log("Puglin.glb loaded successfully")
+      }, undefined, (e) => console.warn("Puglin.glb load fallback:", e))
+
+      loader.load('assets/models/scenery/Tree_1_A_Color1.gltf', (gltf) => {
+        this.gltfModels.tree = gltf.scene
+      }, undefined, (e) => {})
+
+      loader.load('assets/models/scenery/Rock_1_A_Color1.gltf', (gltf) => {
+        this.gltfModels.rock = gltf.scene
+      }, undefined, (e) => {})
+
+      loader.load('assets/models/scenery/Bush_1_A_Color1.gltf', (gltf) => {
+        this.gltfModels.bush = gltf.scene
+      }, undefined, (e) => {})
+    }
   }
 
   initMaterials() {
@@ -633,6 +663,164 @@ class ModelFactory {
     group.blades = blades
 
     return group
+  }
+
+  // ==========================================
+  // DESKTOP GLTF/GLB MONSTER & SCENERY ASSETS
+  // ==========================================
+
+  // Imp Monster (Grounded / Magma Imp)
+  createImp(tintColor = null) {
+    if (this.gltfModels.imp) {
+      const clone = this.gltfModels.imp.clone(true)
+      clone.scale.set(0.65, 0.65, 0.65)
+      clone.traverse(child => {
+        if (child.isMesh) {
+          child.castShadow = true
+          if (tintColor && child.material) {
+            child.material = child.material.clone()
+            child.material.color.set(tintColor)
+          }
+        }
+      })
+      const wrapper = new THREE.Group()
+      wrapper.add(clone)
+      return wrapper
+    }
+    // Fallback procedural imp
+    return this.createGoblin()
+  }
+
+  // Puglin Monster (Ironclad / Brutal Puglin)
+  createPuglin(tintColor = null) {
+    if (this.gltfModels.puglin) {
+      const clone = this.gltfModels.puglin.clone(true)
+      clone.scale.set(0.75, 0.75, 0.75)
+      clone.traverse(child => {
+        if (child.isMesh) {
+          child.castShadow = true
+          if (tintColor && child.material) {
+            child.material = child.material.clone()
+            child.material.color.set(tintColor)
+          }
+        }
+      })
+      const wrapper = new THREE.Group()
+      wrapper.add(clone)
+      return wrapper
+    }
+    // Fallback procedural ogre
+    return this.createOgre()
+  }
+
+  // LEGENDARY SUMMONED HERO: CELESTIAL ARCHON
+  createCelestialArchon() {
+    const group = new THREE.Group()
+    group.scale.set(1.5, 1.5, 1.5)
+
+    // Radiant Gold Plate Armor
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, 1.4, 8), this.materials.gold)
+    body.position.y = 1.0
+    body.castShadow = true
+    group.add(body)
+
+    // Halo
+    const halo = new THREE.Mesh(new THREE.TorusGeometry(0.35, 0.04, 6, 16), new THREE.MeshBasicMaterial({ color: 0xffea00 }))
+    halo.position.set(0, 2.1, 0)
+    halo.rotation.x = Math.PI / 2
+    group.add(halo)
+
+    // Glowing Golden Wings (Left & Right)
+    const wingMat = new THREE.MeshStandardMaterial({
+      color: 0xffea55,
+      emissive: 0xffbb00,
+      emissiveIntensity: 0.8,
+      transparent: true,
+      opacity: 0.85
+    })
+    const wingL = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.05, 0.6), wingMat)
+    wingL.position.set(-0.75, 1.4, -0.2)
+    wingL.rotation.z = 0.45
+
+    const wingR = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.05, 0.6), wingMat)
+    wingR.position.set(0.75, 1.4, -0.2)
+    wingR.rotation.z = -0.45
+    group.add(wingL)
+    group.add(wingR)
+
+    // Giant Holy Sun Blade
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.8, 0.05), new THREE.MeshBasicMaterial({ color: 0xffffff }))
+    blade.position.set(0.65, 1.2, 0.3)
+    blade.rotation.x = Math.PI / 8
+    group.add(blade)
+
+    // Sacred Light Column Aura
+    const beam = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.9, 0.9, 12, 16, 1, true),
+      new THREE.MeshBasicMaterial({
+        color: 0xffea00,
+        transparent: true,
+        opacity: 0.25,
+        side: THREE.DoubleSide
+      })
+    )
+    beam.position.y = 5.5
+    group.add(beam)
+    group.beam = beam
+
+    return group
+  }
+
+  // SCENERY DECORATOR (TREES, ROCKS, BUSHES FROM ASSETS)
+  spawnSceneryDecorations(scene, waypoints) {
+    if (!this.gltfModels.tree && !this.gltfModels.rock) return
+
+    const bounds = 28
+    const numProps = 28
+
+    for (let i = 0; i < numProps; i++) {
+      const rx = (Math.random() - 0.5) * (bounds * 2)
+      const rz = (Math.random() - 0.5) * (bounds * 2)
+      const p = new THREE.Vector3(rx, 0, rz)
+
+      // Skip if too close to path waypoints
+      let nearPath = false
+      for (const wp of waypoints) {
+        if (p.distanceTo(wp) < 3.2) {
+          nearPath = true
+          break
+        }
+      }
+      if (nearPath) continue
+
+      let propModel = null
+      const pick = Math.random()
+      if (pick < 0.45 && this.gltfModels.tree) {
+        propModel = this.gltfModels.tree.clone(true)
+        const scale = 0.8 + Math.random() * 0.5
+        propModel.scale.set(scale, scale, scale)
+      } else if (pick < 0.75 && this.gltfModels.rock) {
+        propModel = this.gltfModels.rock.clone(true)
+        const scale = 0.6 + Math.random() * 0.6
+        propModel.scale.set(scale, scale, scale)
+      } else if (this.gltfModels.bush) {
+        propModel = this.gltfModels.bush.clone(true)
+        const scale = 0.5 + Math.random() * 0.4
+        propModel.scale.set(scale, scale, scale)
+      }
+
+      if (propModel) {
+        propModel.position.set(rx, 0, rz)
+        propModel.rotation.y = Math.random() * Math.PI * 2
+        propModel.traverse(c => {
+          if (c.isMesh) {
+            c.castShadow = true
+            c.receiveShadow = true
+          }
+        })
+        scene.add(propModel)
+      }
+    }
   }
 
   // Add Elite Visual Embellishments (Crown & Glowing Aura)

@@ -27,9 +27,21 @@ class CombatEngine {
       damage *= critMult
     }
 
+    let isResisted = false
+    let isVulnerable = false
+
+    // Counter Negation / Immunity Check
+    if (target.resistsType === type || target.counterType === type) {
+      isResisted = true
+      damage *= 0.18 // Negates 82% of damage
+    } else if (target.weakToType === type) {
+      isVulnerable = true
+      damage *= 2.5 // Deals 250% damage when using the countering tower
+    }
+
     // Brittle status modifier (frost vulnerability)
     if (target.brittle > 0) {
-      damage *= (1 + target.brittleMult || 1.3)
+      damage *= (1 + (target.brittleMult || 1.3))
     }
 
     // Damage mitigation by defense type
@@ -48,7 +60,7 @@ class CombatEngine {
     }
 
     // Void execution bonus against low-health targets
-    if (type === DAMAGE_TYPES.VOID && (target.hp / target.maxHp) <= 0.35) {
+    if (type === DAMAGE_TYPES.VOID && (target.hp / target.maxHp) <= 0.35 && !target.immuneVoid) {
       finalDamage *= 1.75
     }
 
@@ -56,6 +68,8 @@ class CombatEngine {
     return {
       amount: finalDamage,
       isCrit,
+      isResisted,
+      isVulnerable,
       type
     }
   }
@@ -83,14 +97,21 @@ class CombatEngine {
     // Visual combat number
     let textColor = '#ffffff'
     let prefix = ''
-    if (result.type === DAMAGE_TYPES.FIRE) textColor = '#ff7733'
+
+    if (result.isResisted) {
+      textColor = '#8c95a6'
+      prefix = 'RESISTED (-80%) '
+    } else if (result.isVulnerable) {
+      textColor = '#ffd000'
+      prefix = 'WEAKNESS 2.5x! '
+    } else if (result.type === DAMAGE_TYPES.FIRE) textColor = '#ff7733'
     else if (result.type === DAMAGE_TYPES.FROST) textColor = '#7ce6ff'
     else if (result.type === DAMAGE_TYPES.LIGHTNING) textColor = '#ffea6c'
     else if (result.type === DAMAGE_TYPES.VOID) textColor = '#d280ff'
     else textColor = result.isCrit ? '#ff3b30' : '#e0e0e0'
 
-    if (result.isCrit) prefix = 'CRIT! '
-    this.spawnFloatingText(target.position, `${prefix}${result.amount}`, textColor, result.isCrit)
+    if (result.isCrit && !result.isResisted) prefix = 'CRIT! ' + prefix
+    this.spawnFloatingText(target.position, `${prefix}${result.amount}`, textColor, result.isCrit || result.isVulnerable)
 
     // Grant attacker XP for combat participation
     if (attacker && attacker.grantXp) {
@@ -111,19 +132,24 @@ class CombatEngine {
   // Apply status effects
   applyStatus(target, effect) {
     if (effect.type === 'burn') {
-      target.burnDps = Math.max(target.burnDps || 0, effect.dps)
-      target.burnDuration = Math.max(target.burnDuration || 0, effect.duration)
+      // Fire-resistant enemies are immune to burn DOT
+      if (!target.immuneBurn && target.resistsType !== DAMAGE_TYPES.FIRE && target.counterType !== DAMAGE_TYPES.FIRE) {
+        target.burnDps = Math.max(target.burnDps || 0, effect.dps)
+        target.burnDuration = Math.max(target.burnDuration || 0, effect.duration)
+      }
     } else if (effect.type === 'slow') {
-      // Juggernauts are immune to slow
-      if (!target.immuneSlow) {
+      // Frost-resistant and juggernauts are immune to slow
+      if (!target.immuneSlow && target.resistsType !== DAMAGE_TYPES.FROST && target.counterType !== DAMAGE_TYPES.FROST) {
         target.slowFactor = Math.min(0.75, Math.max(target.slowFactor || 0, effect.amount))
         target.slowDuration = Math.max(target.slowDuration || 0, effect.duration)
       }
     } else if (effect.type === 'brittle') {
-      target.brittle = Math.max(target.brittle || 0, effect.duration)
-      target.brittleMult = effect.mult || 1.3
+      if (target.resistsType !== DAMAGE_TYPES.FROST) {
+        target.brittle = Math.max(target.brittle || 0, effect.duration)
+        target.brittleMult = effect.mult || 1.3
+      }
     } else if (effect.type === 'stun') {
-      if (!target.immuneStun) {
+      if (!target.immuneStun && target.resistsType !== DAMAGE_TYPES.LIGHTNING) {
         target.stunDuration = Math.max(target.stunDuration || 0, effect.duration)
       }
     }

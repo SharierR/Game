@@ -587,3 +587,128 @@ html, body {
   font-size: 14px;
   width: 100%;
 }
+
+/* Hero Call-in Soul Gauge */
+.hero-meter-pill {
+  border-color: rgba(255, 215, 0, 0.4);
+  background: rgba(26, 32, 50, 0.85);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hero-meter-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.meter-bar-container {
+  width: 90px;
+  height: 10px;
+  background: rgba(15, 20, 30, 0.9);
+  border: 1px solid rgba(255, 215, 0, 0.3);
+  border-radius: 5px;
+  position: relative;
+  overflow: hidden;
+}
+
+.meter-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ffd700, #ff8800);
+  width: 0%;
+  transition: width 0.25s ease;
+}
+
+.meter-bar-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 8px;
+  font-weight: 700;
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+}
+
+.btn-hero-call {
+  background: linear-gradient(135deg, #eab308, #ca8a04);
+  color: #1a1a1a;
+  padding: 6px 14px;
+  font-size: 11px;
+  font-weight: 900;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-hero-call:disabled {
+  background: #334155;
+  color: #64748b;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.ready-pulse {
+  animation: pulseGold 1.2s infinite;
+  background: linear-gradient(135deg, #ffd700, #ffaa00) !important;
+  color: #000000 !important;
+  box-shadow: 0 0 16px rgba(255, 215, 0, 0.8) !important;
+}
+
+@keyframes pulseGold {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.08); box-shadow: 0 0 24px rgba(255, 215, 0, 1); }
+  100% { transform: scale(1); }
+}
+
+/* Enemy 3D Health Bar & Counter Badges */
+#enemy-bars-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 12;
+  overflow: hidden;
+}
+
+.enemy-hp-overlay {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  pointer-events: none;
+}
+
+.counter-badge {
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(10, 14, 22, 0.88);
+  border: 1px solid rgba(255, 215, 0, 0.5);
+  color: #ffd700;
+  white-space: nowrap;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+
+.hp-bar-bg {
+  width: 52px;
+  height: 6px;
+  background: rgba(15, 18, 25, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.hp-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #22c55e, #16a34a);
+  border-radius: 2px;
+  transition: width 0.1s ease;
+}

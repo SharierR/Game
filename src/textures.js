@@ -3,6 +3,17 @@
 
 const TextureGenerator = {
   cache: {},
+  loader: new THREE.TextureLoader(),
+
+  loadAssetTexture(path, repeatX = 1, repeatY = 1) {
+    if (this.cache[path]) return this.cache[path]
+    const tex = this.loader.load(path)
+    tex.wrapS = THREE.RepeatWrapping
+    tex.wrapT = THREE.RepeatWrapping
+    tex.repeat.set(repeatX, repeatY)
+    this.cache[path] = tex
+    return tex
+  },
 
   createCanvas(width, height) {
     const canvas = document.createElement('canvas')
@@ -123,6 +134,15 @@ const TextureGenerator = {
     const key = `ground_${biome}`
     if (this.cache[key]) return this.cache[key]
 
+    try {
+      let textureFile = 'assets/textures/Grass/Grass_01-256x256.png'
+      if (biome === 'crypt') textureFile = 'assets/textures/Tile/Tile_12-256x256.png'
+      else if (biome === 'volcano') textureFile = 'assets/textures/Bricks/Bricks_08-256x256.png'
+      return this.loadAssetTexture(textureFile, 12, 12)
+    } catch (e) {
+      console.warn("Asset texture load error, fallback to procedural:", e)
+    }
+
     const size = 512
     const canvas = this.createCanvas(size, size)
     const ctx = canvas.getContext('2d')
@@ -179,6 +199,15 @@ const TextureGenerator = {
   getPathTexture(biome = 'forest') {
     const key = `path_${biome}`
     if (this.cache[key]) return this.cache[key]
+
+    try {
+      let pathFile = 'assets/textures/Tile/Tile_01-256x256.png'
+      if (biome === 'crypt') pathFile = 'assets/textures/Bricks/Bricks_01-256x256.png'
+      else if (biome === 'volcano') pathFile = 'assets/textures/Tile/Tile_19-256x256.png'
+      return this.loadAssetTexture(pathFile, 6, 6)
+    } catch (e) {
+      console.warn("Path asset texture load error, fallback to procedural:", e)
+    }
 
     const size = 512
     const canvas = this.createCanvas(size, size)

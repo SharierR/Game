@@ -132,56 +132,61 @@ class WaveManager {
       else bossType = 'VoidArchon'
     }
 
-    // Exponential-linear difficulty scaling
-    const difficultyScale = Math.pow(1.18, wave - 1) * (1 + wave * 0.05)
+    // Exponential-linear difficulty scaling (higher challenge)
+    const difficultyScale = Math.pow(1.22, wave - 1) * (1 + wave * 0.08)
 
     // Calculate enemy composition
     const spawnQueue = []
 
     if (isBossWave) {
       // Boss waves have minor escort minions + 1 massive Boss
-      const minionCount = 6 + Math.floor(wave * 0.8)
+      const minionCount = 8 + Math.floor(wave * 1.2)
       for (let i = 0; i < minionCount; i++) {
+        const types = ['goblin', 'imp_magma', 'puglin_ironclad', 'imp_grounded']
         spawnQueue.push({
-          type: (i % 2 === 0) ? 'goblin' : 'footman',
-          isElite: false,
-          delay: i * 0.7
+          type: types[i % types.length],
+          isElite: (i % 3 === 0),
+          delay: i * 0.65
         })
       }
       // Boss spawns with dramatic delay
       spawnQueue.push({
         type: 'boss',
         bossType,
-        isElite: false,
-        delay: (minionCount + 1) * 0.7 + 1.0
+        isElite: true,
+        delay: (minionCount + 1) * 0.65 + 1.2
       })
     } else {
-      // Normal waves: Scaling count of goblins, footmen, ogres, and banshees
-      const totalCount = Math.min(45, Math.round(8 + wave * 2.2))
-      const eliteChance = Math.min(0.4, Math.max(0, (wave - 2) * 0.05))
+      // Normal waves: Scaling count of goblins, footmen, counter imps, puglins, and banshees
+      const totalCount = Math.min(50, Math.round(10 + wave * 2.8))
+      const eliteChance = Math.min(0.45, Math.max(0, (wave - 1) * 0.06))
 
       for (let i = 0; i < totalCount; i++) {
         let type = 'goblin'
         const r = Math.random()
 
-        if (wave >= 8 && r < 0.25) {
-          type = 'banshee'
-        } else if (wave >= 4 && r < 0.5) {
-          type = 'ogre'
-        } else if (wave >= 2 && r < 0.75) {
+        if (wave >= 5 && r < 0.22) {
+          type = 'puglin_ironclad' // Tanky physical counter
+        } else if (wave >= 4 && r < 0.42) {
+          type = 'imp_magma' // Fire counter, weak to frost
+        } else if (wave >= 3 && r < 0.60) {
+          type = 'imp_grounded' // Lightning counter, weak to ballista
+        } else if (wave >= 2 && r < 0.78) {
           type = 'footman'
+        } else if (wave >= 6 && r < 0.90) {
+          type = 'banshee'
         } else {
           type = 'goblin'
         }
 
-        const isElite = (wave >= 3) && (Math.random() < eliteChance)
+        const isElite = (wave >= 2) && (Math.random() < eliteChance)
         const affix = isElite ? ELITE_AFFIXES[Math.floor(Math.random() * ELITE_AFFIXES.length)] : null
 
         spawnQueue.push({
           type,
           isElite,
           affix,
-          delay: i * Math.max(0.35, 1.1 - wave * 0.035)
+          delay: i * Math.max(0.3, 1.0 - wave * 0.03)
         })
       }
     }
@@ -198,53 +203,85 @@ class WaveManager {
 
   // Create an enemy instance data based on its type and current difficulty
   createEnemyData(config, difficultyScale) {
-    let baseHp = 45
+    let baseHp = 120
     let baseSpeed = 2.4
-    let armor = 5
-    let magicResist = 5
+    let armor = 8
+    let magicResist = 8
     let xpReward = 15
     let goldReward = 8
+    let counterName = ''
+    let resistsType = null
+    let weakToType = null
 
     switch (config.type) {
       case 'goblin':
-        baseHp = 35
-        baseSpeed = 3.6
-        armor = 2
-        magicResist = 2
+        baseHp = 110
+        baseSpeed = 3.3
+        armor = 4
+        magicResist = 4
         goldReward = 6
         xpReward = 12
         break
       case 'footman':
-        baseHp = 70
-        baseSpeed = 2.2
-        armor = 25
-        magicResist = 10
-        goldReward = 10
-        xpReward = 20
+        baseHp = 260
+        baseSpeed = 2.0
+        armor = 30
+        magicResist = 12
+        goldReward = 11
+        xpReward = 22
         break
-      case 'ogre':
-        baseHp = 180
-        baseSpeed = 1.4
-        armor = 45
-        magicResist = 15
-        goldReward = 22
-        xpReward = 45
-        break
-      case 'banshee':
-        baseHp = 90
-        baseSpeed = 2.8
-        armor = 0 // Immune to physical armor
-        magicResist = 35
+      case 'imp_magma':
+        baseHp = 380
+        baseSpeed = 2.4
+        armor = 18
+        magicResist = 45
         goldReward = 16
         xpReward = 32
+        resistsType = 'fire'
+        weakToType = 'frost'
+        counterName = 'Magma Imp [Negates Fire | Weak: Frost]'
+        break
+      case 'puglin_ironclad':
+        baseHp = 780
+        baseSpeed = 1.3
+        armor = 65
+        magicResist = 15
+        goldReward = 26
+        xpReward = 52
+        resistsType = 'physical'
+        weakToType = 'lightning'
+        counterName = 'Ironclad Puglin [Negates Phys | Weak: Storm]'
+        break
+      case 'imp_grounded':
+        baseHp = 360
+        baseSpeed = 2.5
+        armor = 35
+        magicResist = 40
+        goldReward = 16
+        xpReward = 32
+        resistsType = 'lightning'
+        weakToType = 'physical'
+        counterName = 'Grounded Imp [Negates Storm | Weak: Ballista]'
+        break
+      case 'banshee':
+        baseHp = 320
+        baseSpeed = 2.6
+        armor = 0
+        magicResist = 30
+        goldReward = 18
+        xpReward = 36
+        resistsType = 'void'
+        weakToType = 'fire'
+        counterName = 'Void Specter [Negates Void | Weak: Fire]'
         break
       case 'boss':
-        baseHp = 1200
-        baseSpeed = 1.1
-        armor = 50
-        magicResist = 40
-        goldReward = 120
-        xpReward = 250
+        baseHp = 4500
+        baseSpeed = 1.0
+        armor = 60
+        magicResist = 50
+        goldReward = 150
+        xpReward = 300
+        counterName = 'Titan Boss'
         break
     }
 
@@ -252,14 +289,17 @@ class WaveManager {
     const enemyData = {
       type: config.type,
       bossType: config.bossType,
+      counterName,
+      resistsType,
+      weakToType,
       maxHp: scaledHp,
       hp: scaledHp,
       speed: baseSpeed,
-      armor: Math.round(armor * (1 + (difficultyScale - 1) * 0.25)),
-      magicResist: Math.round(magicResist * (1 + (difficultyScale - 1) * 0.25)),
+      armor: Math.round(armor * (1 + (difficultyScale - 1) * 0.22)),
+      magicResist: Math.round(magicResist * (1 + (difficultyScale - 1) * 0.22)),
       shield: 0,
-      goldReward: Math.round(goldReward * (1 + (difficultyScale - 1) * 0.15)),
-      xpReward: Math.round(xpReward * (1 + (difficultyScale - 1) * 0.2)),
+      goldReward: Math.round(goldReward * (1 + (difficultyScale - 1) * 0.12)),
+      xpReward: Math.round(xpReward * (1 + (difficultyScale - 1) * 0.18)),
       isElite: config.isElite,
       affix: config.affix,
       distanceTraveled: 0,
@@ -269,7 +309,7 @@ class WaveManager {
     // Apply Elite Affix if present
     if (config.isElite && config.affix) {
       config.affix.apply(enemyData)
-      enemyData.maxHp = Math.round(enemyData.maxHp * 1.4)
+      enemyData.maxHp = Math.round(enemyData.maxHp * 1.45)
       enemyData.hp = enemyData.maxHp
       enemyData.goldReward = Math.round(enemyData.goldReward * 1.7)
       enemyData.xpReward = Math.round(enemyData.xpReward * 1.8)

@@ -16,6 +16,8 @@ class GameController {
       gold: 240,
       score: 0,
       totalKills: 0,
+      heroSouls: 0,
+      heroSoulsRequired: 20,
       relics: {},
       selectedHeroType: 'pyromancer',
       selectedTower: null,
@@ -228,6 +230,11 @@ class GameController {
     archGroup.add(archTop)
     archGroup.add(portalDisc)
     this.scene.add(archGroup)
+
+    // Plant 3D scenery props (trees, rocks, bushes) around map borders
+    setTimeout(() => {
+      modelFactory.spawnSceneryDecorations(this.scene, this.waypoints)
+    }, 150)
   }
 
   initNexus() {
@@ -316,6 +323,7 @@ class GameController {
       if (e.key === '3') this.selectHeroCatalog('frostPylon')
       if (e.key === '4') this.selectHeroCatalog('stormMonolith')
       if (e.key === '5') this.selectHeroCatalog('voidReaper')
+      if (e.key === 'h' || e.key === 'H') this.callLegendaryHero()
       if (e.key === ' ' || e.key === 'Spacebar') {
         if (!this.waveActive) this.startNextWave()
       }
@@ -525,7 +533,9 @@ class GameController {
       switch (queueItem.type) {
         case 'goblin': model = modelFactory.createGoblin(); break
         case 'footman': model = modelFactory.createFootman(); break
-        case 'ogre': model = modelFactory.createOgre(); break
+        case 'imp_magma': model = modelFactory.createImp(0xff4411); break
+        case 'imp_grounded': model = modelFactory.createImp(0xaa9944); break
+        case 'puglin_ironclad': model = modelFactory.createPuglin(); break
         case 'banshee': model = modelFactory.createBanshee(); break
       }
     }
@@ -865,6 +875,10 @@ class GameController {
     this.state.score += goldEarned * 10
     this.state.totalKills++
 
+    // Increment Hero Call-in Gauge
+    this.state.heroSouls++
+    this.updateHeroSoulUI()
+
     soundSystem.playGold()
     combatEngine.spawnFloatingText(enemy.position, `+${goldEarned}g`, '#ffd700', false)
 
@@ -1082,8 +1096,129 @@ class GameController {
     // Render Floating Damage Numbers Overlay
     combatEngine.updateFloatingTexts(rawDt, this.camera, this.damageContainer)
 
+    // Render 3D Enemy Health Bars & Counter Badges
+    this.renderEnemyOverlays()
+
     this.controls.update()
     this.renderer.render(this.scene, this.camera)
+  }
+
+  renderEnemyOverlays() {
+    let container = document.getElementById('enemy-bars-container')
+    if (!container) {
+      container = document.createElement('div')
+      container.id = 'enemy-bars-container'
+      document.body.appendChild(container)
+    }
+    container.innerHTML = ''
+
+    for (const e of this.enemies) {
+      if (!e.alive) continue
+      const vector = new THREE.Vector3(e.position.x, e.position.y + 1.6, e.position.z)
+      vector.project(this.camera)
+
+      if (vector.z < 1) {
+        const x = (vector.x * 0.5 + 0.5) * window.innerWidth
+        const y = (-(vector.y * 0.5) + 0.5) * window.innerHeight
+
+        const bar = document.createElement('div')
+        bar.className = 'enemy-hp-overlay'
+        bar.style.left = `${x}px`
+        bar.style.top = `${y}px`
+
+        const hpPct = Math.max(0, Math.min(100, Math.round((e.hp / e.maxHp) * 100)))
+        let tagHtml = ''
+        if (e.counterName) {
+          tagHtml = `<div class="counter-badge">${e.counterName}</div>`
+        }
+
+        bar.innerHTML = `
+          ${tagHtml}
+          <div class="hp-bar-bg">
+            <div class="hp-bar-fill" style="width: ${hpPct}%"></div>
+          </div>
+        `
+        container.appendChild(bar)
+      }
+    }
+  }
+
+  updateHeroSoulUI() {
+    const pct = Math.min(100, Math.round((this.state.heroSouls / this.state.heroSoulsRequired) * 100))
+    const fill = document.getElementById('hero-soul-fill')
+    const text = document.getElementById('hero-soul-text')
+    const btn = document.getElementById('btn-call-hero')
+
+    if (fill) fill.style.width = `${pct}%`
+    if (text) text.textContent = `${this.state.heroSouls} / ${this.state.heroSoulsRequired}`
+
+    if (btn) {
+      const ready = this.state.heroSouls >= this.state.heroSoulsRequired
+      btn.disabled = !ready
+      btn.classList.toggle('ready-pulse', ready)
+      if (ready) btn.textContent = 'SUMMON [H] (READY!)'
+      else btn.textContent = 'SUMMON [H]'
+    }
+  }
+
+  callLegendaryHero() {
+    if (this.state.heroSouls < this.state.heroSoulsRequired) {
+      this.showNotification(`Hero Call-in charging: (${this.state.heroSouls}/${this.state.heroSoulsRequired} kills)`, '#ffaa00')
+      return
+    }
+
+    this.state.heroSouls = 0
+    this.updateHeroSoulUI()
+
+    soundSystem.playTone(880, 'triangle', 0.6, 1320)
+    soundSystem.playLevelUp()
+    this.showNotification("👑 CELESTIAL ARCHON DESCENDS! Heavenly Judgement unleashed!", "#ffd700")
+
+    // Spawn celestial archon in center
+    const archon = modelFactory.createCelestialArchon()
+    archon.position.set(0, 6, 0)
+    this.scene.add(archon)
+
+    // Screen shockwave
+    this.spawnExplosionEffect(new THREE.Vector3(0, 0.1, 0), 0xffd700, 22)
+    this.triggerScreenShake()
+
+    // Strike ALL enemies currently alive for 750 true damage
+    for (const e of this.enemies) {
+      if (!e.alive) continue
+      const res = { amount: 750, isCrit: true, type: DAMAGE_TYPES.LIGHTNING }
+      combatEngine.applyDamage(null, e, res, soundSystem)
+      combatEngine.spawnFloatingText(e.position, "HOLY WRATH! 750", "#ffd700", true)
+      if (e.hp <= 0) this.killEnemy(e, null)
+    }
+
+    // Grant all player towers a Holy Frenzy buff (+60% attack speed, +25% crit) for 15 seconds
+    this.state.relics.globalAttackSpeed = (this.state.relics.globalAttackSpeed || 0) + 0.60
+    this.state.relics.globalCritChance = (this.state.relics.globalCritChance || 0) + 0.25
+
+    setTimeout(() => {
+      this.state.relics.globalAttackSpeed = Math.max(0, (this.state.relics.globalAttackSpeed || 0) - 0.60)
+      this.state.relics.globalCritChance = Math.max(0, (this.state.relics.globalCritChance || 0) - 0.25)
+      this.showNotification("Celestial Archon's blessing faded.", "#94a3b8")
+    }, 15000)
+
+    // Animate archon descending and ascending
+    let elapsed = 0
+    const interval = setInterval(() => {
+      elapsed += 0.05
+      if (archon) {
+        if (elapsed < 1.0) {
+          archon.position.y = Math.max(1.2, 6 - elapsed * 4.8)
+        } else if (elapsed > 4.5) {
+          archon.position.y += 0.2
+          archon.scale.multiplyScalar(0.95)
+        }
+      }
+      if (elapsed > 6.0) {
+        clearInterval(interval)
+        this.scene.remove(archon)
+      }
+    }, 50)
   }
 
   // ==========================================
