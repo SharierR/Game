@@ -165,15 +165,15 @@ class WaveManager {
         let type = 'goblin'
         const r = Math.random()
 
-        if (wave >= 5 && r < 0.22) {
-          type = 'puglin_ironclad' // Tanky physical counter
-        } else if (wave >= 4 && r < 0.42) {
-          type = 'imp_magma' // Fire counter, weak to frost
-        } else if (wave >= 3 && r < 0.60) {
-          type = 'imp_grounded' // Lightning counter, weak to ballista
-        } else if (wave >= 2 && r < 0.78) {
+        if (r < 0.25) {
+          type = 'imp_grounded' // Grounded Imp (Imp.glb) - weak to Ballista
+        } else if (r < 0.48) {
+          type = 'imp_magma' // Magma Imp (Imp.glb) - weak to Frost
+        } else if (r < 0.68) {
+          type = 'puglin_ironclad' // Ironclad Puglin (Puglin.glb) - tanky, weak to Storm/Void
+        } else if (wave >= 2 && r < 0.85) {
           type = 'footman'
-        } else if (wave >= 6 && r < 0.90) {
+        } else if (wave >= 4 && r < 0.95) {
           type = 'banshee'
         } else {
           type = 'goblin'

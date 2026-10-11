@@ -19,11 +19,11 @@ class CombatEngine {
     let damage = rawDamage
     let isCrit = false
 
-    // Check critical strike
-    const critChance = attacker.critChance || 0.1
+    // Check critical strike (rare and balanced)
+    const critChance = attacker.critChance !== undefined ? attacker.critChance : 0.05
     if (Math.random() < critChance) {
       isCrit = true
-      const critMult = attacker.critMult || 1.8
+      const critMult = attacker.critMult || 1.35
       damage *= critMult
     }
 

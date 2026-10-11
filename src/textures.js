@@ -7,7 +7,18 @@ const TextureGenerator = {
 
   loadAssetTexture(path, repeatX = 1, repeatY = 1) {
     if (this.cache[path]) return this.cache[path]
-    const tex = this.loader.load(path)
+    const tex = this.loader.load(path, (loaded) => {
+      loaded.wrapS = THREE.RepeatWrapping
+      loaded.wrapT = THREE.RepeatWrapping
+      loaded.repeat.set(repeatX, repeatY)
+      loaded.needsUpdate = true
+      if (window.game && window.game.groundMesh) {
+        window.game.groundMesh.material.needsUpdate = true
+      }
+      if (window.game && window.game.pathMeshes) {
+        window.game.pathMeshes.forEach(m => { m.material.needsUpdate = true })
+      }
+    })
     tex.wrapS = THREE.RepeatWrapping
     tex.wrapT = THREE.RepeatWrapping
     tex.repeat.set(repeatX, repeatY)

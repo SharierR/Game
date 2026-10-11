@@ -24,57 +24,57 @@ class GameController {
       onLivesChanged: (l) => this.updateLivesUI(l)
     }
 
-    // Hero Tower Definitions
+    // Hero Tower Definitions (Balanced Damage & Controlled Crits)
     this.heroCatalog = {
       pyromancer: {
         name: 'Ignis, The Pyromancer',
         cost: 80,
         range: 6.5,
-        fireRate: 1.1,
-        damage: 42,
+        fireRate: 0.9,
+        damage: 16,
         damageType: DAMAGE_TYPES.FIRE,
-        critChance: 0.15,
+        critChance: 0.05,
         desc: 'Launches exploding fireballs that scorch targets with persistent Burn damage.'
       },
       ballista: {
         name: 'Iron Piercer (Ballista)',
         cost: 95,
         range: 8.5,
-        fireRate: 0.8,
-        damage: 85,
+        fireRate: 0.7,
+        damage: 28,
         damageType: DAMAGE_TYPES.PHYSICAL,
         armorPen: 0.35,
-        critChance: 0.25,
+        critChance: 0.06,
         desc: 'Heavy kinetic bolt thrower with armor penetration and piercing damage.'
       },
       frostPylon: {
         name: 'Glacial Spire',
         cost: 75,
         range: 6.0,
-        fireRate: 2.5,
-        damage: 18,
+        fireRate: 2.2,
+        damage: 7,
         damageType: DAMAGE_TYPES.FROST,
-        critChance: 0.05,
+        critChance: 0.02,
         desc: 'Channels freezing ice beams that slow enemies and make them Brittle to all damage.'
       },
       stormMonolith: {
         name: 'Tempest Monolith',
         cost: 110,
         range: 7.0,
-        fireRate: 0.9,
-        damage: 64,
+        fireRate: 0.85,
+        damage: 19,
         damageType: DAMAGE_TYPES.LIGHTNING,
-        critChance: 0.20,
+        critChance: 0.05,
         desc: 'Electrocutes targets with high-voltage chain lightning that stuns foes.'
       },
       voidReaper: {
         name: 'Shadow Warden',
         cost: 130,
         range: 5.5,
-        fireRate: 1.2,
-        damage: 75,
+        fireRate: 1.0,
+        damage: 24,
         damageType: DAMAGE_TYPES.VOID,
-        critChance: 0.30,
+        critChance: 0.06,
         desc: 'Deals true void damage, executing wounded foes and siphoning extra gold.'
       }
     }
@@ -174,8 +174,9 @@ class GameController {
     const groundGeo = new THREE.PlaneGeometry(70, 70)
     const groundMat = new THREE.MeshStandardMaterial({
       map: TextureGenerator.getGroundTexture('forest'),
-      roughness: 0.9,
-      metalness: 0.1
+      color: 0x3d7442,
+      roughness: 0.85,
+      metalness: 0.05
     })
     this.groundMesh = new THREE.Mesh(groundGeo, groundMat)
     this.groundMesh.rotation.x = -Math.PI / 2
@@ -194,7 +195,8 @@ class GameController {
       const roadGeo = new THREE.BoxGeometry(2.4, 0.1, dist + 2.4)
       const roadMat = new THREE.MeshStandardMaterial({
         map: TextureGenerator.getPathTexture('forest'),
-        roughness: 0.8
+        color: 0x8a929d,
+        roughness: 0.75
       })
       const road = new THREE.Mesh(roadGeo, roadMat)
       road.position.set(mid.x, 0.05, mid.z)
@@ -232,9 +234,7 @@ class GameController {
     this.scene.add(archGroup)
 
     // Plant 3D scenery props (trees, rocks, bushes) around map borders
-    setTimeout(() => {
-      modelFactory.spawnSceneryDecorations(this.scene, this.waypoints)
-    }, 150)
+    modelFactory.spawnSceneryDecorations(this.scene, this.waypoints)
   }
 
   initNexus() {
@@ -559,6 +559,26 @@ class GameController {
     }
 
     this.enemies.push(enemy)
+  }
+
+  refreshEnemyModels(type) {
+    for (const e of this.enemies) {
+      if (!e.alive) continue
+      let newModel = null
+      if (type === 'imp' && (e.type === 'imp_magma' || e.type === 'imp_grounded')) {
+        const tint = (e.type === 'imp_magma') ? 0xff4411 : 0xaa9944
+        newModel = modelFactory.createImp(tint)
+      } else if (type === 'puglin' && e.type === 'puglin_ironclad') {
+        newModel = modelFactory.createPuglin()
+      }
+      if (newModel) {
+        newModel.position.copy(e.model.position)
+        newModel.rotation.copy(e.model.rotation)
+        this.scene.remove(e.model)
+        this.scene.add(newModel)
+        e.model = newModel
+      }
+    }
   }
 
   // ==========================================

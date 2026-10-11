@@ -15,23 +15,38 @@ class ModelFactory {
       loader.load('assets/characters/Imp.glb', (gltf) => {
         this.gltfModels.imp = gltf.scene
         console.log("Imp.glb loaded successfully")
+        if (window.game && window.game.refreshEnemyModels) {
+          window.game.refreshEnemyModels('imp')
+        }
       }, undefined, (e) => console.warn("Imp.glb load fallback:", e))
 
       loader.load('assets/characters/Puglin.glb', (gltf) => {
         this.gltfModels.puglin = gltf.scene
         console.log("Puglin.glb loaded successfully")
+        if (window.game && window.game.refreshEnemyModels) {
+          window.game.refreshEnemyModels('puglin')
+        }
       }, undefined, (e) => console.warn("Puglin.glb load fallback:", e))
 
       loader.load('assets/models/scenery/Tree_1_A_Color1.gltf', (gltf) => {
         this.gltfModels.tree = gltf.scene
+        if (window.game && window.game.scene) {
+          this.spawnSceneryDecorations(window.game.scene, window.game.waypoints)
+        }
       }, undefined, (e) => {})
 
       loader.load('assets/models/scenery/Rock_1_A_Color1.gltf', (gltf) => {
         this.gltfModels.rock = gltf.scene
+        if (window.game && window.game.scene) {
+          this.spawnSceneryDecorations(window.game.scene, window.game.waypoints)
+        }
       }, undefined, (e) => {})
 
       loader.load('assets/models/scenery/Bush_1_A_Color1.gltf', (gltf) => {
         this.gltfModels.bush = gltf.scene
+        if (window.game && window.game.scene) {
+          this.spawnSceneryDecorations(window.game.scene, window.game.waypoints)
+        }
       }, undefined, (e) => {})
     }
   }
@@ -771,12 +786,47 @@ class ModelFactory {
     return group
   }
 
+  createPineTree() {
+    const group = new THREE.Group()
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.28, 1.4, 6), this.materials.wood)
+    trunk.position.y = 0.7
+    trunk.castShadow = true
+    group.add(trunk)
+    for (let t = 0; t < 3; t++) {
+      const foliage = new THREE.Mesh(
+        new THREE.ConeGeometry(1.3 - t * 0.3, 1.4, 6),
+        new THREE.MeshStandardMaterial({ color: 0x1d4726, roughness: 0.85 })
+      )
+      foliage.position.y = 1.5 + t * 0.85
+      foliage.castShadow = true
+      group.add(foliage)
+    }
+    return group
+  }
+
+  createRockProp() {
+    const rock = new THREE.Mesh(
+      new THREE.DodecahedronGeometry(0.75 + Math.random() * 0.4),
+      new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.9 })
+    )
+    rock.position.y = 0.4
+    rock.castShadow = true
+    return rock
+  }
+
   // SCENERY DECORATOR (TREES, ROCKS, BUSHES FROM ASSETS)
   spawnSceneryDecorations(scene, waypoints) {
-    if (!this.gltfModels.tree && !this.gltfModels.rock) return
+    if (!scene) return
+
+    // If already populated with procedural, clean them up for GLTF upgrade
+    if (this.sceneryGroup) {
+      scene.remove(this.sceneryGroup)
+    }
+    this.sceneryGroup = new THREE.Group()
+    scene.add(this.sceneryGroup)
 
     const bounds = 28
-    const numProps = 28
+    const numProps = 36
 
     for (let i = 0; i < numProps; i++) {
       const rx = (Math.random() - 0.5) * (bounds * 2)
@@ -795,18 +845,30 @@ class ModelFactory {
 
       let propModel = null
       const pick = Math.random()
-      if (pick < 0.45 && this.gltfModels.tree) {
-        propModel = this.gltfModels.tree.clone(true)
-        const scale = 0.8 + Math.random() * 0.5
-        propModel.scale.set(scale, scale, scale)
-      } else if (pick < 0.75 && this.gltfModels.rock) {
-        propModel = this.gltfModels.rock.clone(true)
-        const scale = 0.6 + Math.random() * 0.6
-        propModel.scale.set(scale, scale, scale)
-      } else if (this.gltfModels.bush) {
-        propModel = this.gltfModels.bush.clone(true)
-        const scale = 0.5 + Math.random() * 0.4
-        propModel.scale.set(scale, scale, scale)
+      if (pick < 0.5) {
+        if (this.gltfModels.tree) {
+          propModel = this.gltfModels.tree.clone(true)
+          const scale = 0.85 + Math.random() * 0.5
+          propModel.scale.set(scale, scale, scale)
+        } else {
+          propModel = this.createPineTree()
+        }
+      } else if (pick < 0.8) {
+        if (this.gltfModels.rock) {
+          propModel = this.gltfModels.rock.clone(true)
+          const scale = 0.65 + Math.random() * 0.6
+          propModel.scale.set(scale, scale, scale)
+        } else {
+          propModel = this.createRockProp()
+        }
+      } else {
+        if (this.gltfModels.bush) {
+          propModel = this.gltfModels.bush.clone(true)
+          const scale = 0.55 + Math.random() * 0.4
+          propModel.scale.set(scale, scale, scale)
+        } else {
+          propModel = this.createRockProp()
+        }
       }
 
       if (propModel) {
@@ -818,7 +880,7 @@ class ModelFactory {
             c.receiveShadow = true
           }
         })
-        scene.add(propModel)
+        this.sceneryGroup.add(propModel)
       }
     }
   }
