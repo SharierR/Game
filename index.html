@@ -3,11 +3,230 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Standard Deviations</title>
-  <link rel="stylesheet" href="style.css">
+  <title>Arcane Nexus - 3D Roguelike Tower Defense</title>
+  <link rel="stylesheet" href="style.css" />
+  <!-- Three.js & OrbitControls -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 </head>
 <body>
-  <script src="https://unpkg.com/kaboom@3000.1.17/dist/kaboom.js"></script>
-  <script src="game.js"></script>
+  <!-- 3D Canvas Container -->
+  <div id="canvas-container"></div>
+
+  <!-- Screen Damage Numbers & Floating Text Overlay -->
+  <div id="damage-numbers"></div>
+
+  <!-- Emergency Screen Red Flash Vignette -->
+  <div id="screen-flash"></div>
+
+  <!-- In-game Notification Banner -->
+  <div id="notification-banner"></div>
+
+  <!-- UI Overlay Layer -->
+  <div id="ui-layer">
+    <!-- Top HUD Header -->
+    <header id="top-hud">
+      <div class="hud-group">
+        <div class="game-title">⚡ ARCANE NEXUS</div>
+        <div class="hud-pill" title="Nexus Energy Cores">
+          <span class="label">NEXUS LIVES</span>
+          <div id="nexus-lives">
+            <div class="life-orb active"></div>
+            <div class="life-orb active"></div>
+            <div class="life-orb active"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="hud-group">
+        <div class="hud-pill gold-pill">
+          <span class="icon">🪙</span>
+          <span id="hud-gold" class="value">240</span>
+          <span class="label">GOLD</span>
+        </div>
+        <div class="hud-pill">
+          <span class="icon">🌊</span>
+          <span class="label">WAVE</span>
+          <span id="hud-wave" class="value">1</span>
+        </div>
+        <div class="hud-pill">
+          <span class="icon">👾</span>
+          <span class="label">ENEMIES</span>
+          <span id="hud-enemies" class="value">0</span>
+        </div>
+      </div>
+
+      <div class="hud-group controls-group">
+        <div class="speed-controls">
+          <button class="btn-ctrl active" onclick="setSpeed(1)">1x</button>
+          <button class="btn-ctrl" onclick="setSpeed(2)">2x</button>
+          <button class="btn-ctrl" onclick="setSpeed(4)">4x</button>
+        </div>
+        <button id="btn-audio" class="btn-ctrl" onclick="toggleAudio()">🔊 SFX</button>
+        <button id="btn-wave-start" class="btn-action" onclick="window.game.startNextWave()">
+          Start Next Wave [Space]
+        </button>
+      </div>
+    </header>
+
+    <!-- Side Inspect Panel for Placed Towers -->
+    <aside id="tower-inspect-panel" style="display: none;">
+      <div class="panel-header">
+        <h3 id="inspect-name">Ignis, The Pyromancer</h3>
+        <button class="btn-close" onclick="document.getElementById('tower-inspect-panel').style.display='none'">×</button>
+      </div>
+      <div class="panel-body">
+        <div class="badge" id="inspect-level">Level 1 (Novice)</div>
+        <div class="xp-bar-container">
+          <div class="xp-bar-fill" id="inspect-xp-fill"></div>
+          <span class="xp-bar-text" id="inspect-xp-text">0 / 50 XP</span>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-item">
+            <span class="stat-label">Enemies Slain</span>
+            <span class="stat-value" id="inspect-kills">0</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Total Damage</span>
+            <span class="stat-value" id="inspect-damage">0</span>
+          </div>
+        </div>
+
+        <button id="btn-inspect-upgrade" class="btn-action full-width" onclick="upgradeSelectedTower()">
+          Empower (+Level) [60g]
+        </button>
+      </div>
+    </aside>
+
+    <!-- Bottom Hero Selection Bar -->
+    <footer id="bottom-hud">
+      <div class="catalog-tray">
+        <!-- 1. Pyromancer -->
+        <div class="hero-card active" data-hero="pyromancer" onclick="window.game.selectHeroCatalog('pyromancer')">
+          <div class="hotkey">1</div>
+          <div class="hero-icon" style="color: #ff5722;">🔥</div>
+          <div class="hero-info">
+            <div class="hero-name">Ignis (Pyromancer)</div>
+            <div class="hero-type">Fire AOE & Burn DOT</div>
+          </div>
+          <div class="hero-cost">80g</div>
+        </div>
+
+        <!-- 2. Ballista -->
+        <div class="hero-card" data-hero="ballista" onclick="window.game.selectHeroCatalog('ballista')">
+          <div class="hotkey">2</div>
+          <div class="hero-icon" style="color: #a0aab8;">🏹</div>
+          <div class="hero-info">
+            <div class="hero-name">Iron Piercer (Ballista)</div>
+            <div class="hero-type">Physical Armor Penetration</div>
+          </div>
+          <div class="hero-cost">95g</div>
+        </div>
+
+        <!-- 3. Frost Pylon -->
+        <div class="hero-card" data-hero="frostPylon" onclick="window.game.selectHeroCatalog('frostPylon')">
+          <div class="hotkey">3</div>
+          <div class="hero-icon" style="color: #00d0ff;">❄️</div>
+          <div class="hero-info">
+            <div class="hero-name">Glacial Spire</div>
+            <div class="hero-type">Continuous Freeze & Brittle</div>
+          </div>
+          <div class="hero-cost">75g</div>
+        </div>
+
+        <!-- 4. Storm Monolith -->
+        <div class="hero-card" data-hero="stormMonolith" onclick="window.game.selectHeroCatalog('stormMonolith')">
+          <div class="hotkey">4</div>
+          <div class="hero-icon" style="color: #ffea00;">⚡</div>
+          <div class="hero-info">
+            <div class="hero-name">Tempest Monolith</div>
+            <div class="hero-type">Chain Lightning & Stun</div>
+          </div>
+          <div class="hero-cost">110g</div>
+        </div>
+
+        <!-- 5. Void Reaper -->
+        <div class="hero-card" data-hero="voidReaper" onclick="window.game.selectHeroCatalog('voidReaper')">
+          <div class="hotkey">5</div>
+          <div class="hero-icon" style="color: #bd00ff;">💀</div>
+          <div class="hero-info">
+            <div class="hero-name">Shadow Warden</div>
+            <div class="hero-type">Void Execution & Bonus Gold</div>
+          </div>
+          <div class="hero-cost">130g</div>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Roguelike Relic Draft Modal -->
+  <div id="draft-modal" class="modal-backdrop" style="display: none;">
+    <div class="modal-content">
+      <h2 class="modal-title">✨ ARCANE RELIC DRAFT</h2>
+      <p class="modal-subtitle">Choose one mystical boon to empower your defenses for the remaining waves:</p>
+      <div id="relic-cards" class="relic-grid"></div>
+    </div>
+  </div>
+
+  <!-- Game Over Modal -->
+  <div id="game-over-modal" class="modal-backdrop" style="display: none;">
+    <div class="modal-content game-over-box">
+      <h1 class="defeat-title">💀 NEXUS OVERRUN</h1>
+      <p class="defeat-subtitle">The Arcane Sanctuary has fallen to the demonic hordes.</p>
+      <div class="end-stats">
+        <div class="end-stat-box">
+          <span class="stat-num" id="stat-waves">1</span>
+          <span class="stat-desc">Waves Reached</span>
+        </div>
+        <div class="end-stat-box">
+          <span class="stat-num" id="stat-kills">0</span>
+          <span class="stat-desc">Enemies Slain</span>
+        </div>
+        <div class="end-stat-box">
+          <span class="stat-num" id="stat-score">0</span>
+          <span class="stat-desc">Final Score</span>
+        </div>
+      </div>
+      <button class="btn-action restart-btn" onclick="location.reload()">Reclaim the Sanctuary (Restart)</button>
+    </div>
+  </div>
+
+  <!-- Helper UI Scripts -->
+  <script>
+    function setSpeed(s) {
+      if (window.game) window.game.speed = s
+      document.querySelectorAll('.speed-controls .btn-ctrl').forEach(b => {
+        b.classList.toggle('active', b.textContent === `${s}x`)
+      })
+    }
+
+    function toggleAudio() {
+      if (window.soundSystem) {
+        const muted = window.soundSystem.toggleMute()
+        document.getElementById('btn-audio').textContent = muted ? '🔇 Muted' : '🔊 SFX'
+      }
+    }
+
+    function upgradeSelectedTower() {
+      if (!window.game || !window.game.state.selectedTower) return
+      const t = window.game.state.selectedTower
+      const cost = t.level * 60
+      if (window.game.state.gold >= cost && t.level < 5) {
+        window.game.state.gold -= cost
+        t.grantXp(HERO_LEVEL_DATA[t.level].xpRequired)
+        window.game.updateHUD()
+        window.game.updateInspectPanel()
+      }
+    }
+  </script>
+
+  <!-- Game Engine Modules -->
+  <script src="src/audio.js"></script>
+  <script src="src/textures.js"></script>
+  <script src="src/combat.js"></script>
+  <script src="src/models.js"></script>
+  <script src="src/waves.js"></script>
+  <script src="src/game.js"></script>
 </body>
 </html>
