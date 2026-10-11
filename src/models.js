@@ -6,8 +6,19 @@ class ModelFactory {
     this.materials = this.initMaterials()
     this.gltfModels = {}
     this.charTextures = { imp: {}, puglin: {} }
+    this.fbxTowers = {
+      ballista: {},
+      pyromancer: {},
+      frostPylon: {},
+      stormMonolith: {},
+      voidReaper: {}
+    }
+    this.heroModel = null
+    this.heroClips = []
     this.initCharacterTextures()
     this.initGLTFLoader()
+    this.initTowerLoader()
+    this.initAnimationLoader()
   }
 
   // Reliable SkinnedMesh hierarchy clone with bone rebinding
@@ -115,6 +126,82 @@ class ModelFactory {
         }
       }, undefined, (e) => {})
     }
+  }
+
+  initTowerLoader() {
+    if (typeof THREE.FBXLoader !== 'function') return
+    const fbxLoader = new THREE.FBXLoader()
+    const texLoader = new THREE.TextureLoader()
+    const towerTex = texLoader.load('assets/tower/texture/Texture_MAp_fortress_elves.png', (tex) => {
+      tex.encoding = THREE.sRGBEncoding
+      tex.needsUpdate = true
+    })
+
+    const towerFiles = {
+      ballista: (lvl) => `assets/tower/fbx/Full/_Ballista_tower_LVL_${lvl}.fbx`,
+      pyromancer: (lvl) => `assets/tower/fbx/Full/_Cannon_tower_LVL_${lvl}.fbx`,
+      frostPylon: (lvl) => `assets/tower/fbx/Full/_archer_tower_LVL_${lvl}.fbx`,
+      stormMonolith: (lvl) => `assets/tower/fbx/Full/_Wizard_tower_LVL_${lvl}.fbx`,
+      voidReaper: (lvl) => `assets/tower/fbx/Full/_Poison_tower_LVL_${lvl}.fbx`
+    }
+
+    Object.entries(towerFiles).forEach(([type, getPath]) => {
+      for (let lvl = 1; lvl <= 4; lvl++) {
+        const path = getPath(lvl)
+        fbxLoader.load(path, (fbx) => {
+          const box = new THREE.Box3().setFromObject(fbx)
+          const size = box.getSize(new THREE.Vector3())
+          const targetHeight = 2.9 + lvl * 0.25
+          const s = size.y > 0 ? (targetHeight / size.y) : 0.015
+          fbx.scale.set(s, s, s)
+          fbx.position.y = -box.min.y * s
+
+          fbx.traverse(child => {
+            if (child.isMesh) {
+              child.castShadow = true
+              child.receiveShadow = true
+              child.material = new THREE.MeshStandardMaterial({
+                map: towerTex,
+                roughness: 0.7,
+                metalness: 0.15
+              })
+            }
+          })
+
+          this.fbxTowers[type][lvl] = fbx
+          if (window.game && window.game.refreshTowerModels) {
+            window.game.refreshTowerModels(type)
+          }
+        }, undefined, (e) => console.warn(`Tower FBX load fallback ${path}:`, e))
+      }
+    })
+  }
+
+  initAnimationLoader() {
+    if (typeof THREE.GLTFLoader !== 'function') return
+    const loader = new THREE.GLTFLoader()
+
+    // 1. Load Mannequin character for the summoned Legendary Hero
+    loader.load('assets/animation/KayKit_Character_Animations_1.1/Mannequin Character/characters/Mannequin_Medium.glb', (gltf) => {
+      this.heroModel = gltf.scene
+      console.log("Hero Mannequin character loaded successfully")
+      if (window.game && window.game.refreshHeroModel) {
+        window.game.refreshHeroModel()
+      }
+    }, undefined, (e) => console.warn("Hero character load fallback:", e))
+
+    // 2. Load KayKit skeletal animation clips (spellcasting, attacks, idle)
+    loader.load('assets/animation/KayKit_Character_Animations_1.1/Animations/gltf/Rig_Medium/Rig_Medium_CombatRanged.glb', (gltf) => {
+      if (gltf.animations) this.heroClips.push(...gltf.animations)
+    }, undefined, (e) => {})
+
+    loader.load('assets/animation/KayKit_Character_Animations_1.1/Animations/gltf/Rig_Medium/Rig_Medium_CombatMelee.glb', (gltf) => {
+      if (gltf.animations) this.heroClips.push(...gltf.animations)
+    }, undefined, (e) => {})
+
+    loader.load('assets/animation/KayKit_Character_Animations_1.1/Animations/gltf/Rig_Medium/Rig_Medium_General.glb', (gltf) => {
+      if (gltf.animations) this.heroClips.push(...gltf.animations)
+    }, undefined, (e) => {})
   }
 
   initMaterials() {
@@ -283,42 +370,64 @@ class ModelFactory {
   }
 
   // ==========================================
-  // HEROES / TOWERS
+  // HEROES / TOWERS (3D FBX MODELS + LEVELS)
   // ==========================================
 
-  // 1. IGNIS, THE PYROMANCER (Fire Mage)
-  createPyromancer() {
-    const group = new THREE.Group()
+  // Universal Tower Creator with Level-based model selection
+  createTowerModel(type, level = 1) {
+    const lvl = Math.min(4, Math.max(1, level))
+    switch (type) {
+      case 'ballista': return this.createBallista(lvl)
+      case 'pyromancer': return this.createPyromancer(lvl)
+      case 'frostPylon': return this.createFrostPylon(lvl)
+      case 'stormMonolith': return this.createStormMonolith(lvl)
+      case 'voidReaper': return this.createVoidReaper(lvl)
+      default: return this.createPyromancer(lvl)
+    }
+  }
 
-    // Stone Dias
+  // 1. IGNIS, THE PYROMANCER (Cannon Tower from assets)
+  createPyromancer(level = 1) {
+    const group = new THREE.Group()
+    const lvl = Math.min(4, Math.max(1, level))
+
+    if (this.fbxTowers.pyromancer && this.fbxTowers.pyromancer[lvl]) {
+      const fbxClone = this.fbxTowers.pyromancer[lvl].clone(true)
+      group.add(fbxClone)
+
+      // Crown with fiery furnace core & 3 orbiting flame motes
+      const flameCore = new THREE.Mesh(new THREE.OctahedronGeometry(0.24, 0), this.materials.fireRuby)
+      flameCore.position.set(0, 3.2 + lvl * 0.22, 0)
+      group.add(flameCore)
+      group.coreCrystal = flameCore
+
+      const sparks = []
+      for (let i = 0; i < 3; i++) {
+        const spark = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), this.materials.fireRuby)
+        group.add(spark)
+        sparks.push(spark)
+      }
+      group.sparks = sparks
+      group.modelType = 'pyromancer'
+      group.level = lvl
+      return group
+    }
+
+    // Procedural Fallback
     const base = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.95, 0.35, 8), this.materials.darkStone)
     base.position.y = 0.175
     base.castShadow = true
     group.add(base)
-
-    // Runic plate
     const rune = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.05, 8), this.materials.gold)
     rune.position.y = 0.38
     group.add(rune)
-
-    // Wizard Robe / Body
-    const robe = new THREE.Mesh(new THREE.ConeGeometry(0.45, 1.2, 8), new THREE.MeshStandardMaterial({
-      color: 0x8b1a1a,
-      roughness: 0.7
-    }))
+    const robe = new THREE.Mesh(new THREE.ConeGeometry(0.45, 1.2, 8), new THREE.MeshStandardMaterial({ color: 0x8b1a1a, roughness: 0.7 }))
     robe.position.y = 0.95
     robe.castShadow = true
     group.add(robe)
-
-    // Wizard Hood / Head
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 12), new THREE.MeshStandardMaterial({
-      color: 0x221111,
-      roughness: 0.8
-    }))
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 12), new THREE.MeshStandardMaterial({ color: 0x221111, roughness: 0.8 }))
     head.position.y = 1.6
     group.add(head)
-
-    // Glowing Eyes
     const eyeMat = new THREE.MeshBasicMaterial({ color: 0xffaa00 })
     const eye1 = new THREE.Mesh(new THREE.SphereGeometry(0.04), eyeMat)
     eye1.position.set(0.08, 1.62, 0.18)
@@ -326,20 +435,14 @@ class ModelFactory {
     eye2.position.set(-0.08, 1.62, 0.18)
     group.add(eye1)
     group.add(eye2)
-
-    // Magic Staff
     const staff = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 1.7, 8), this.materials.wood)
     staff.position.set(0.38, 1.1, 0.2)
     staff.rotation.z = -0.1
     group.add(staff)
-
-    // Flame Core Crystal on staff head
     const flameCore = new THREE.Mesh(new THREE.OctahedronGeometry(0.2, 0), this.materials.fireRuby)
     flameCore.position.set(0.42, 2.0, 0.2)
     group.add(flameCore)
     group.coreCrystal = flameCore
-
-    // 3 Orbiting mini flame motes
     const sparks = []
     for (let i = 0; i < 3; i++) {
       const spark = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), this.materials.fireRuby)
@@ -347,46 +450,44 @@ class ModelFactory {
       sparks.push(spark)
     }
     group.sparks = sparks
-
     return group
   }
 
-  // 2. IRON PIERCER (Siege Ballista)
-  createBallista() {
+  // 2. IRON PIERCER (Ballista Tower from assets)
+  createBallista(level = 1) {
     const group = new THREE.Group()
+    const lvl = Math.min(4, Math.max(1, level))
 
-    // Timber tripod base
+    if (this.fbxTowers.ballista && this.fbxTowers.ballista[lvl]) {
+      const fbxClone = this.fbxTowers.ballista[lvl].clone(true)
+      group.add(fbxClone)
+      group.turret = fbxClone
+      group.modelType = 'ballista'
+      group.level = lvl
+      return group
+    }
+
+    // Procedural Fallback
     const base = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.85, 0.25, 6), this.materials.wood)
     base.position.y = 0.125
     group.add(base)
-
-    // Iron turntable gear
     const gear = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 0.15, 12), this.materials.iron)
     gear.position.y = 0.3
     group.add(gear)
-
-    // Ballista Turret Housing (rotates towards target)
     const turret = new THREE.Group()
     turret.position.y = 0.5
-
-    // Main stock beam
     const stock = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.2, 1.4), this.materials.wood)
     stock.position.z = 0.1
     stock.castShadow = true
     turret.add(stock)
-
-    // Recurve Bow Arms (Horizontal)
     const bowLeft = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.12, 0.15), this.materials.iron)
     bowLeft.position.set(-0.4, 0.08, 0.5)
     bowLeft.rotation.y = 0.35
     turret.add(bowLeft)
-
     const bowRight = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.12, 0.15), this.materials.iron)
     bowRight.position.set(0.4, 0.08, 0.5)
     bowRight.rotation.y = -0.35
     turret.add(bowRight)
-
-    // Heavy Bolt / Spear ready to fire
     const bolt = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.2, 6), this.materials.wood)
     bolt.rotation.x = Math.PI / 2
     bolt.position.set(0, 0.14, 0.3)
@@ -396,28 +497,49 @@ class ModelFactory {
     turret.add(bolt)
     turret.add(tip)
     group.boltMesh = bolt
-
     group.add(turret)
     group.turret = turret
-
     return group
   }
 
-  // 3. GLACIAL SPIRE (Frost Pylon)
-  createFrostPylon() {
+  // 3. GLACIAL SPIRE (Archer Watchtower from assets)
+  createFrostPylon(level = 1) {
     const group = new THREE.Group()
+    const lvl = Math.min(4, Math.max(1, level))
 
-    // Tiered frosted stone base
+    if (this.fbxTowers.frostPylon && this.fbxTowers.frostPylon[lvl]) {
+      const fbxClone = this.fbxTowers.frostPylon[lvl].clone(true)
+      group.add(fbxClone)
+
+      // Crown with floating glacial spire & orbiting shards
+      const spireGeo = new THREE.OctahedronGeometry(0.45, 0)
+      spireGeo.scale(0.8, 2.0, 0.8)
+      const spire = new THREE.Mesh(spireGeo, this.materials.frostCrystal)
+      spire.position.y = 3.3 + lvl * 0.22
+      spire.castShadow = true
+      group.add(spire)
+      group.spire = spire
+
+      const shards = []
+      for (let i = 0; i < 4; i++) {
+        const shardGeo = new THREE.ConeGeometry(0.12, 0.45, 4)
+        const shard = new THREE.Mesh(shardGeo, this.materials.frostCrystal)
+        group.add(shard)
+        shards.push(shard)
+      }
+      group.shards = shards
+      group.modelType = 'frostPylon'
+      group.level = lvl
+      return group
+    }
+
+    // Procedural Fallback
     const base = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.9, 0.35, 6), this.materials.darkStone)
     base.position.y = 0.175
     group.add(base)
-
-    // Runic ice disc
     const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.65, 0.1, 6), this.materials.frostCrystal)
     disc.position.y = 0.38
     group.add(disc)
-
-    // Floating Central Ice Spire
     const spireGeo = new THREE.OctahedronGeometry(0.65, 0)
     spireGeo.scale(0.8, 2.2, 0.8)
     const spire = new THREE.Mesh(spireGeo, this.materials.frostCrystal)
@@ -425,8 +547,6 @@ class ModelFactory {
     spire.castShadow = true
     group.add(spire)
     group.spire = spire
-
-    // 4 Orbiting Ice Shards
     const shards = []
     for (let i = 0; i < 4; i++) {
       const shardGeo = new THREE.ConeGeometry(0.12, 0.5, 4)
@@ -435,26 +555,36 @@ class ModelFactory {
       shards.push(shard)
     }
     group.shards = shards
-
     return group
   }
 
-  // 4. TEMPEST MONOLITH (Storm Tower)
-  createStormMonolith() {
+  // 4. TEMPEST MONOLITH (Wizard Tower from assets)
+  createStormMonolith(level = 1) {
     const group = new THREE.Group()
+    const lvl = Math.min(4, Math.max(1, level))
 
-    // Metallic Base
+    if (this.fbxTowers.stormMonolith && this.fbxTowers.stormMonolith[lvl]) {
+      const fbxClone = this.fbxTowers.stormMonolith[lvl].clone(true)
+      group.add(fbxClone)
+
+      // High-voltage lightning orb crowning wizard tower
+      const orb = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 12), this.materials.stormElectric)
+      orb.position.set(0, 3.4 + lvl * 0.22, 0)
+      group.add(orb)
+      group.orb = orb
+      group.modelType = 'stormMonolith'
+      group.level = lvl
+      return group
+    }
+
+    // Procedural Fallback
     const base = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.95, 0.3, 8), this.materials.darkStone)
     base.position.y = 0.15
     group.add(base)
-
-    // Twin Prongs / Conductors
     for (const offset of [-0.3, 0.3]) {
       const prong = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, 1.7, 6), this.materials.iron)
       prong.position.set(offset, 1.0, 0)
       group.add(prong)
-
-      // Copper coils
       for (let c = 0; c < 3; c++) {
         const coil = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.03, 6, 12), this.materials.gold)
         coil.position.set(offset, 0.6 + c * 0.35, 0)
@@ -462,51 +592,65 @@ class ModelFactory {
         group.add(coil)
       }
     }
-
-    // High-voltage lightning orb between the tines
     const orb = new THREE.Mesh(new THREE.SphereGeometry(0.28, 12, 12), this.materials.stormElectric)
     orb.position.set(0, 1.6, 0)
     group.add(orb)
     group.orb = orb
-
     return group
   }
 
-  // 5. SHADOW WARDEN (Void Reaper)
-  createVoidReaper() {
+  // 5. SHADOW WARDEN (Poison Spire Tower from assets)
+  createVoidReaper(level = 1) {
     const group = new THREE.Group()
+    const lvl = Math.min(4, Math.max(1, level))
 
-    // Void portal ring at base
+    if (this.fbxTowers.voidReaper && this.fbxTowers.voidReaper[lvl]) {
+      const fbxClone = this.fbxTowers.voidReaper[lvl].clone(true)
+      group.add(fbxClone)
+
+      // Void portal ring at base
+      const portal = new THREE.Mesh(new THREE.TorusGeometry(0.9, 0.08, 8, 24), this.materials.voidPurple)
+      portal.rotation.x = Math.PI / 2
+      portal.position.y = 0.08
+      group.add(portal)
+
+      // Dual floating void scythes orbiting pinnacle
+      const scythe1 = new THREE.Mesh(new THREE.TorusGeometry(0.35, 0.04, 6, 16, Math.PI), this.materials.voidPurple)
+      scythe1.position.set(0.65, 3.2 + lvl * 0.22, 0)
+      scythe1.rotation.z = Math.PI / 3
+
+      const scythe2 = new THREE.Mesh(new THREE.TorusGeometry(0.35, 0.04, 6, 16, Math.PI), this.materials.voidPurple)
+      scythe2.position.set(-0.65, 3.2 + lvl * 0.22, 0)
+      scythe2.rotation.z = -Math.PI / 3
+
+      group.add(scythe1)
+      group.add(scythe2)
+      group.scythes = [scythe1, scythe2]
+      group.modelType = 'voidReaper'
+      group.level = lvl
+      return group
+    }
+
+    // Procedural Fallback
     const portal = new THREE.Mesh(new THREE.TorusGeometry(0.7, 0.08, 8, 24), this.materials.voidPurple)
     portal.rotation.x = Math.PI / 2
     portal.position.y = 0.08
     group.add(portal)
-
-    // Floating Hooded Spectre (no feet)
-    const cowl = new THREE.Mesh(new THREE.ConeGeometry(0.4, 1.4, 8), new THREE.MeshStandardMaterial({
-      color: 0x110c1f,
-      roughness: 0.9
-    }))
+    const cowl = new THREE.Mesh(new THREE.ConeGeometry(0.4, 1.4, 8), new THREE.MeshStandardMaterial({ color: 0x110c1f, roughness: 0.9 }))
     cowl.position.y = 1.1
     group.add(cowl)
-
-    // Spectral Void Orb in Hood
     const voidSoul = new THREE.Mesh(new THREE.SphereGeometry(0.18, 12, 12), this.materials.voidPurple)
     voidSoul.position.set(0, 1.4, 0.05)
     group.add(voidSoul)
-
-    // Dual Floating Scythes
     const scythe1 = new THREE.Mesh(new THREE.TorusGeometry(0.35, 0.04, 6, 16, Math.PI), this.materials.voidPurple)
     scythe1.position.set(0.55, 1.3, 0)
     scythe1.rotation.z = Math.PI / 3
     const scythe2 = new THREE.Mesh(new THREE.TorusGeometry(0.35, 0.04, 6, 16, Math.PI), this.materials.voidPurple)
     scythe2.position.set(-0.55, 1.3, 0)
     scythe2.rotation.z = -Math.PI / 3
-
     group.add(scythe1)
     group.add(scythe2)
     group.scythes = [scythe1, scythe2]
-
     return group
   }
 
@@ -851,20 +995,56 @@ class ModelFactory {
     return this.createBossVoidArchon()
   }
 
-  // LEGENDARY SUMMONED HERO: CELESTIAL ARCHON
+  // LEGENDARY SUMMONED HERO: CELESTIAL ARCHON (ANIMATED 3D CHARACTER)
   createCelestialArchon() {
     const group = new THREE.Group()
     group.scale.set(1.5, 1.5, 1.5)
 
-    // Radiant Gold Plate Armor
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, 1.4, 8), this.materials.gold)
-    body.position.y = 1.0
-    body.castShadow = true
-    group.add(body)
+    if (this.heroModel) {
+      const heroClone = this.cloneWithSkeleton(this.heroModel)
+      heroClone.scale.set(1.2, 1.2, 1.2)
+      heroClone.position.y = 0
+
+      // Radiant Celestial Gold Shader
+      heroClone.traverse(child => {
+        if (child.isMesh) {
+          child.castShadow = true
+          child.receiveShadow = true
+          child.material = this.materials.gold
+        }
+      })
+      group.add(heroClone)
+
+      // Play skeletal animation from KayKit animation pack!
+      if (this.heroClips && this.heroClips.length > 0) {
+        const mixer = new THREE.AnimationMixer(heroClone)
+        const spellClip = this.heroClips.find(c =>
+          c.name.includes('Spellcasting') ||
+          c.name.includes('Magic') ||
+          c.name.includes('Spin') ||
+          c.name.includes('Attack')
+        ) || this.heroClips[0]
+
+        if (spellClip) {
+          const action = mixer.clipAction(spellClip)
+          action.play()
+          group.mixer = mixer
+          if (window.game && window.game.animationMixers) {
+            window.game.animationMixers.push(mixer)
+          }
+        }
+      }
+    } else {
+      // Fallback procedural cylinder body
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, 1.4, 8), this.materials.gold)
+      body.position.y = 1.0
+      body.castShadow = true
+      group.add(body)
+    }
 
     // Halo
     const halo = new THREE.Mesh(new THREE.TorusGeometry(0.35, 0.04, 6, 16), new THREE.MeshBasicMaterial({ color: 0xffea00 }))
-    halo.position.set(0, 2.1, 0)
+    halo.position.set(0, 2.3, 0)
     halo.rotation.x = Math.PI / 2
     group.add(halo)
 
@@ -877,18 +1057,18 @@ class ModelFactory {
       opacity: 0.85
     })
     const wingL = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.05, 0.6), wingMat)
-    wingL.position.set(-0.75, 1.4, -0.2)
+    wingL.position.set(-0.75, 1.5, -0.2)
     wingL.rotation.z = 0.45
 
     const wingR = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.05, 0.6), wingMat)
-    wingR.position.set(0.75, 1.4, -0.2)
+    wingR.position.set(0.75, 1.5, -0.2)
     wingR.rotation.z = -0.45
     group.add(wingL)
     group.add(wingR)
 
     // Giant Holy Sun Blade
     const blade = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.8, 0.05), new THREE.MeshBasicMaterial({ color: 0xffffff }))
-    blade.position.set(0.65, 1.2, 0.3)
+    blade.position.set(0.65, 1.3, 0.3)
     blade.rotation.x = Math.PI / 8
     group.add(blade)
 

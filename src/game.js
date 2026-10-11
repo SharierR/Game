@@ -96,6 +96,7 @@ class GameController {
     this.towers = []
     this.projectiles = []
     this.particles = []
+    this.animationMixers = []
 
     this.waveManager = new WaveManager(this.state)
     this.currentWaveConfig = null
@@ -430,15 +431,8 @@ class GameController {
     this.state.gold -= heroInfo.cost
     this.updateHUD()
 
-    // Instantiate 3D Model
-    let model = null
-    switch (this.state.selectedHeroType) {
-      case 'pyromancer': model = modelFactory.createPyromancer(); break
-      case 'ballista': model = modelFactory.createBallista(); break
-      case 'frostPylon': model = modelFactory.createFrostPylon(); break
-      case 'stormMonolith': model = modelFactory.createStormMonolith(); break
-      case 'voidReaper': model = modelFactory.createVoidReaper(); break
-    }
+    // Instantiate 3D Model using authentic fortress pack
+    const model = modelFactory.createTowerModel(this.state.selectedHeroType, 1)
 
     model.position.set(pos.x, 0, pos.z)
     this.scene.add(model)
@@ -470,7 +464,7 @@ class GameController {
     this.selectTower(tower)
   }
 
-  // Hero Leveling Logic
+  // Hero Leveling Logic with 3D Model Visual Evolution
   grantHeroXp(tower, amount) {
     tower.xp += amount
     const lvlInfo = HERO_LEVEL_DATA[tower.level]
@@ -480,6 +474,9 @@ class GameController {
       soundSystem.playLevelUp()
       combatEngine.spawnFloatingText(tower.position, `LEVEL UP! Lv.${tower.level}`, '#ffdd00', true)
       this.showNotification(`${tower.name} reached Level ${tower.level}!`, '#ffea00')
+
+      // Visually evolve 3D fortress model to next Level
+      this.updateTowerVisualLevel(tower)
 
       // Visual upgrade aura
       const lvlAura = new THREE.Mesh(
@@ -492,6 +489,23 @@ class GameController {
       setTimeout(() => this.scene.remove(lvlAura), 1500)
 
       this.updateInspectPanel()
+    }
+  }
+
+  updateTowerVisualLevel(tower) {
+    const newModel = modelFactory.createTowerModel(tower.type, tower.level)
+    if (newModel) {
+      newModel.position.copy(tower.position)
+      this.scene.remove(tower.model)
+      this.scene.add(newModel)
+      tower.model = newModel
+    }
+  }
+
+  refreshTowerModels(type = null) {
+    for (const t of this.towers) {
+      if (type && t.type !== type) continue
+      this.updateTowerVisualLevel(t)
     }
   }
 
@@ -1110,6 +1124,13 @@ class GameController {
       // Update Towers
       this.updateTowers(dt)
 
+      // Update Skeletal Animation Mixers (KayKit Hero Animations)
+      if (this.animationMixers && this.animationMixers.length > 0) {
+        for (let i = this.animationMixers.length - 1; i >= 0; i--) {
+          this.animationMixers[i].update(dt)
+        }
+      }
+
       // Animate Nexus floating crystal & dome
       if (this.nexus) {
         const t = performance.now() * 0.0015
@@ -1252,6 +1273,10 @@ class GameController {
       }
       if (elapsed > 6.0) {
         clearInterval(interval)
+        if (archon && archon.mixer && this.animationMixers) {
+          const idx = this.animationMixers.indexOf(archon.mixer)
+          if (idx !== -1) this.animationMixers.splice(idx, 1)
+        }
         this.scene.remove(archon)
       }
     }, 50)
